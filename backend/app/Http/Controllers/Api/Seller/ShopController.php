@@ -43,6 +43,9 @@ class ShopController extends Controller
     if ($request->hasFile('logo')) {
       $data['logo'] = $request->file('logo')->store('logos', 'public');
     }
+    if ($request->hasFile('banner')) {
+      $data['banner'] = $request->file('banner')->store('banners', 'public');
+    }
 
     $shop = Shop::create($data);
 
@@ -101,12 +104,21 @@ class ShopController extends Controller
     }
 
     $data = $request->validated();
+    if (isset($data['slug'])) {
+      $data['slug'] = Str::slug($data['slug']);
+    }
 
     if ($request->hasFile('logo')) {
       if ($shop->logo) {
         Storage::disk('public')->delete($shop->logo);
       }
       $data['logo'] = $request->file('logo')->store('logos', 'public');
+    }
+    if ($request->hasFile('banner')) {
+      if ($shop->banner) {
+        Storage::disk('public')->delete($shop->banner);
+      }
+      $data['banner'] = $request->file('banner')->store('banners', 'public');
     }
 
     $shop->update($data);
@@ -130,7 +142,7 @@ class ShopController extends Controller
   {
     $shop = Shop::where('slug', $slug)
       ->with(['products' => function ($q) {
-        $q->where('status', 'active');
+        $q->where('status', 'approved');
       }])
       ->first();
 

@@ -7,13 +7,14 @@ namespace App\Http\Requests\Product;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Auth;
+use App\Enums\UserRole;
 use Illuminate\Support\Str;
 
 class UpdateProductRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return Auth::check() && Auth::user()->role === 'seller';
+        return Auth::check() && Auth::user()->role === UserRole::SELLER;
     }
 
     public function rules(): array
@@ -55,8 +56,10 @@ class UpdateProductRequest extends FormRequest
     {
         $validator->after(function ($v) {
             if ($this->has('name')) {
-                $slug = Str::slug($this->name) . '-' . time();
-                if (\App\Models\Product::where('slug', $slug)->where('id', '!=', $this->route('product')->id)->exists()) {
+                $product = $this->route('product');
+                $productId = is_object($product) ? $product->id : optional(\App\Models\Product::where('slug', $product)->first())->id;
+                $slug = Str::slug($this->name);
+                if (\App\Models\Product::where('slug', 'like', $slug . '%')->where('id', '!=', $productId)->exists()) {
                     $v->errors()->add('name', 'Nama produk sudah digunakan.');
                 }
             }

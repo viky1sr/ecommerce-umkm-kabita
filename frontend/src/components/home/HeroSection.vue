@@ -1,9 +1,20 @@
 <script setup lang="ts">
 import Button from 'primevue/button'
 import { useRouter } from 'vue-router'
+import { onMounted, ref } from 'vue'
+import { publicProductService } from '@/services/publicProductService'
 
 const router = useRouter()
-const heroImage = 'https://www.figma.com/api/mcp/asset/6da6ba2f-43cf-44b6-bbfb-43bee41e75e9.png'
+const heroImage = ref<string | null>(null)
+
+onMounted(async () => {
+  try {
+    const response = await publicProductService.list({ sort: 'newest', per_page: 1 })
+    heroImage.value = response.data[0]?.images?.[0]?.url || null
+  } catch {
+    heroImage.value = null
+  }
+})
 
 function gotoProducts() {
   router.push('/produk')
@@ -12,7 +23,7 @@ function gotoProducts() {
 
 <template>
   <section class="relative overflow-hidden min-h-136">
-    <div class="absolute inset-0 bg-cover bg-center" :style="{ backgroundImage: `url(${heroImage})` }" />
+    <div v-if="heroImage" class="absolute inset-0 bg-cover bg-center" :style="{ backgroundImage: `url(${heroImage})` }" />
     <div class="absolute inset-0 bg-linear-to-r from-slate-950/80 via-slate-950/40 to-transparent"></div>
     <div class="relative z-10 container mx-auto max-w-7xl px-4 py-24">
       <div class="max-w-2xl">

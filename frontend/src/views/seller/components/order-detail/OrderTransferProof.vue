@@ -11,9 +11,9 @@ const visible = ref(false);
 </script>
 
 <template>
-  <div v-if="proofImage" class="bg-white p-5 rounded-xl border border-gray-100 shadow-sm mb-6">
+  <div class="bg-white p-5 rounded-xl border border-gray-100 shadow-sm mb-6">
     <h3 class="text-sm font-bold text-gray-800 mb-3">Bukti Transfer</h3>
-    <div class="flex items-center gap-4">
+    <div v-if="proofImage" class="flex items-center gap-4">
       <img :src="proofImage" alt="Bukti Transfer"
         class="w-16 h-20 object-cover rounded-lg border border-gray-200 cursor-pointer hover:opacity-80 transition"
         @click="visible = true" />
@@ -24,6 +24,7 @@ const visible = ref(false);
           @click="visible = true" />
       </div>
     </div>
+    <p v-else class="text-xs text-slate-500">Bukti transfer belum diunggah oleh pembeli.</p>
 
     <Dialog v-model:visible="visible" modal header="Detail Bukti Transfer" :style="{ width: '400px' }">
       <div class="p-2 text-center">

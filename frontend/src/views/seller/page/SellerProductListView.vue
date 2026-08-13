@@ -9,8 +9,12 @@ import Paginator from 'primevue/paginator'
 import Tag from 'primevue/tag'
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { sellerProductService } from '@/services/sellerProductService'
+import { getApiErrorMessage } from '@/services/apiError'
+import { useToast } from 'primevue/usetoast'
 
 const router = useRouter()
+const toast = useToast()
 const isLoading = ref(true)
 const searchQuery = ref('')
 const selectedStatus = ref<string>('all')
@@ -22,46 +26,16 @@ const statusOptions = [
   { label: 'Ditolak / Rejected', value: 'rejected' }
 ]
 
-// Mock Data Produk
 const products = ref<Partial<Product>[]>([])
 
-const fetchProducts = () => {
+const fetchProducts = async () => {
   isLoading.value = true
-  setTimeout(() => {
-    products.value = [
-      {
-        id: 101,
-        name: 'Keripik Tempe Renyah Premium 200g',
-        slug: 'keripik-tempe-renyah-premium-200g',
-        price: '18000',
-        stock: 45,
-        status: 'approved',
-        category: { id: 1, name: 'Makanan & Minuman', slug: 'makanan-minuman', icon: '', product_count: null, created_at: '', updated_at: '' },
-        images: [{ id: 1, url: 'https://images.unsplash.com/photo-1599490659213-e2b9527bd087?w=300' }]
-      },
-      {
-        id: 102,
-        name: 'Sambal Cumi Ciamis Pedas Gurih',
-        slug: 'sambal-cumi-ciamis-pedas-gurih',
-        price: '25000',
-        stock: 12,
-        status: 'approved',
-        category: { id: 1, name: 'Makanan & Minuman', slug: 'makanan-minuman', icon: '', product_count: null, created_at: '', updated_at: '' },
-        images: [{ id: 2, url: 'https://images.unsplash.com/photo-1541544741938-0af808871cc0?w=300' }]
-      },
-      {
-        id: 103,
-        name: 'Kain Batik Tulis Motif Parang Murni',
-        slug: 'kain-batik-tulis-motif-parang-murni',
-        price: '350000',
-        stock: 5,
-        status: 'pending',
-        category: { id: 2, name: 'Fashion & Pakaian', slug: 'fashion-pakaian', icon: '', product_count: null, created_at: '', updated_at: '' },
-        images: [{ id: 3, url: 'https://images.unsplash.com/photo-1617627143750-d86bc21e42bb?w=300' }]
-      }
-    ]
-    isLoading.value = false
-  }, 500)
+  try {
+    const result = await sellerProductService.list({ search: searchQuery.value, status: selectedStatus.value })
+    products.value = result.data
+  } catch (error) {
+    toast.add({ severity: 'error', summary: 'Gagal memuat produk', detail: getApiErrorMessage(error), life: 3500 })
+  } finally { isLoading.value = false }
 }
 
 const filteredProducts = computed(() => {
@@ -91,7 +65,17 @@ const navigateToAdd = () => {
 }
 
 const navigateToEdit = (id: number) => {
-  router.push(`/seller/produk/edit/${id}`)
+  const product = products.value.find((item) => item.id === id)
+  if (product?.slug) router.push(`/seller/produk/edit/${product.slug}`)
+}
+
+const removeProduct = async (product: Partial<Product>) => {
+  if (!product.slug || !window.confirm(`Hapus produk ${product.name}?`)) return
+  try {
+    await sellerProductService.remove(product.slug)
+    products.value = products.value.filter((item) => item.id !== product.id)
+    toast.add({ severity: 'success', summary: 'Produk dihapus', detail: 'Produk berhasil dihapus dari toko.', life: 2500 })
+  } catch (error) { toast.add({ severity: 'error', summary: 'Gagal menghapus', detail: getApiErrorMessage(error), life: 3500 }) }
 }
 
 onMounted(() => {
@@ -127,7 +111,7 @@ onMounted(() => {
         <Column header="Produk">
           <template #body="{ data }">
             <div class="flex items-center gap-3 py-1">
-              <img :src="data.images?.[0]?.image_path || 'https://via.placeholder.com/60'" alt="Produk"
+              <img :src="data.images?.[0]?.url || 'https://via.placeholder.com/60'" alt="Produk"
                 class="w-12 h-12 rounded-lg object-cover border border-slate-100 shrink-0" />
               <div>
                 <p class="text-sm font-semibold text-slate-800 line-clamp-1">{{ data.name }}</p>
@@ -162,7 +146,7 @@ onMounted(() => {
             <div class="flex items-center justify-center gap-2">
               <Button icon="pi pi-pencil" severity="secondary" text rounded class="w-8! h-8!"
                 @click="navigateToEdit(data.id)" />
-              <Button icon="pi pi-trash" severity="danger" text rounded class="w-8! h-8!" />
+              <Button icon="pi pi-trash" severity="danger" text rounded class="w-8! h-8!" @click="removeProduct(data)" />
             </div>
           </template>
         </Column>

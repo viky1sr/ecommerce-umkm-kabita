@@ -8,7 +8,7 @@ Proyek ini dikembangkan menggunakan metode **Waterfall** sebagai bagian dari tug
 
 - **Bahasa Pemrograman:** PHP 8.5
 - **Framework:** Laravel 12
-- **Database:** MariaDB
+- **Database:** SQLite untuk development (MariaDB/MySQL juga didukung untuk deployment)
 - **Autentikasi:** Laravel Sanctum (Token-based)
 - **API Documentation:** Scramble (OpenAPI 3.1 / Swagger UI)
 - **Testing:** Pest PHP / PHPUnit
@@ -76,7 +76,7 @@ Sebelum memulai, pastikan Anda telah menginstal:
 
 - [PHP >= 8.5](https://www.php.net/downloads.php)
 - [Composer](https://getcomposer.org/)
-- [MariaDB / MySQL](https://mariadb.org/download/)
+- PHP extension `pdo_sqlite` (untuk development lokal)
 - [Node.js & NPM](https://nodejs.org/) (Untuk menjalankan frontend)
 - [XAMPP / Laragon](https://laragon.org/) (Opsional, untuk manajemen server lokal)
 
@@ -106,31 +106,23 @@ php artisan key:generate
 
 ### 4. Konfigurasi Database
 
-Buat database baru di MariaDB (misal: `kabita_ecommerce`), lalu sesuaikan konfigurasi di file `.env`:
+Development menggunakan SQLite. Buat file database lalu gunakan konfigurasi berikut:
 
 ```env
-DB_CONNECTION=mysql
-DB_HOST=127.0.0.1
-DB_PORT=3306
-DB_DATABASE=kabita_ecommerce
-DB_USERNAME=root
-DB_PASSWORD=
+DB_CONNECTION=sqlite
+DB_DATABASE=database/database.sqlite
 ```
+
+Untuk deployment MariaDB/MySQL, ganti `DB_CONNECTION` dan parameter koneksi `DB_*` sesuai
+server database.
 
 ### 5. Jalankan Migrasi & Seeding
 
 Membuat tabel database sesuai skema yang telah dirancang:
 
 ```bash
-php artisan migrate
+php artisan migrate --seed
 ```
-
-_(Opsional) Jika ada file seeder untuk data dummy:_
-
-```bash
-php artisan db:seed
-```
-Nanti akan ada file generated_users.txt untuk menampilkan daftar user yang sudah dibuat.
 
 ### 6. Buat Storage Link
 

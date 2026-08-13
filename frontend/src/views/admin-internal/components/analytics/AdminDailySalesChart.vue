@@ -1,17 +1,19 @@
 <script setup lang="ts">
 import Chart from 'primevue/chart';
-import { onMounted, ref } from 'vue';
+import { ref, watch } from 'vue';
+
+const props = defineProps<{ rows: Array<{ date: string; revenue: string }> }>();
 
 const chartData = ref();
 const chartOptions = ref();
 
-onMounted(() => {
+watch(() => props.rows, () => {
   chartData.value = {
-    labels: ['1 Jul', '7 Jul', '14 Jul', '21 Jul', '28 Jul'],
+    labels: props.rows.map((row) => row.date),
     datasets: [
       {
         label: 'Revenue',
-        data: [0.4, 0.5, 1.2, 0.5, 1.8],
+        data: props.rows.map((row) => Number(row.revenue)),
         borderColor: '#2563eb',
         borderWidth: 4,
         tension: 0.45,
@@ -20,7 +22,7 @@ onMounted(() => {
       },
       {
         label: 'Profit',
-        data: [0.2, 0.25, 0.7, 0.2, 1.2],
+        data: props.rows.map(() => 0),
         borderColor: '#10b981',
         borderWidth: 4,
         borderDash: [6, 6],
@@ -59,7 +61,7 @@ onMounted(() => {
       }
     }
   };
-});
+}, { immediate: true });
 </script>
 
 <template>

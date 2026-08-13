@@ -25,6 +25,7 @@ export const useCartStore = defineStore('cart', () => {
   function normalizeCartPayload(raw: unknown): Cart | undefined {
     if (!raw || typeof raw !== 'object') return undefined
     const payload = raw as Record<string, unknown>
+    if (Array.isArray(payload.groups_by_shop)) return raw as Cart
     const data = payload.data
 
     // Some endpoints return only { status, message } without data
@@ -49,24 +50,16 @@ export const useCartStore = defineStore('cart', () => {
 
   async function addToCart(product: Product, quantity = 1) {
     error.value = null
-    const existing = flatItems.value.find((i) => i.product_id === product.id)
-    if (existing) {
-      existing.quantity += quantity
-      existing.subtotal = calcSubtotal(product.price, existing.quantity)
-    } else {
-      cart.value?.groups_by_shop[0]?.items.push({
-        id: Date.now(),
-        product_id: product.id,
-        quantity,
-        subtotal: calcSubtotal(product.price, quantity),
-        product,
-      })
-    }
+    actionLoading.value = true
     try {
       await cartService.addItem({ product_id: product.id, quantity })
       await loadCart()
+      return true
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Gagal menambahkan ke keranjang'
+      return false
+    } finally {
+      actionLoading.value = false
     }
   }
 

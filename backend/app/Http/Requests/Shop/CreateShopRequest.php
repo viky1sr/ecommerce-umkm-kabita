@@ -6,13 +6,14 @@ namespace App\Http\Requests\Shop;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Auth;
+use App\Enums\UserRole;
 use Illuminate\Support\Str;
 
 class CreateShopRequest extends FormRequest
 {
   public function authorize(): bool
   {
-    return Auth::check() && Auth::user()->role === 'seller';
+        return Auth::check() && Auth::user()->role === UserRole::SELLER;
   }
 
   public function rules(): array
@@ -20,6 +21,8 @@ class CreateShopRequest extends FormRequest
     return [
       'name' => ['required', 'string', 'max:255'],
       'description' => ['nullable', 'string', 'max:1000'],
+      'phone' => ['nullable', 'string', 'max:30'],
+      'address' => ['nullable', 'string', 'max:500'],
       'logo' => [
         'nullable',
         'file',
@@ -27,6 +30,7 @@ class CreateShopRequest extends FormRequest
         'max:2048',
         'image',
       ],
+      'banner' => ['nullable', 'file', 'mimes:jpeg,png,jpg,webp', 'max:4096', 'image'],
     ];
   }
 

@@ -8,6 +8,7 @@ export const adminUserService = {
     search?: string;
     sort?: 'newest' | 'oldest';
     per_page?: number;
+    page?: number;
   }): Promise<{ data: User[]; meta: PaginationMeta }> {
     const response = await apiClient.get('/users', { params: filters });
     return { data: response.data.data, meta: response.data.meta };

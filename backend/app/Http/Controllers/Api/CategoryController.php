@@ -47,8 +47,10 @@ class CategoryController extends Controller
    */
   public function show(string $slug): JsonResponse
   {
-    $category = Cache::remember("category_{$slug}", 300, function () use ($slug) {
-      return Category::where('slug', $slug)->with('products')->first();
+    $category = Cache::remember("category_public_v2_{$slug}", 300, function () use ($slug) {
+      return Category::where('slug', $slug)->with(['products' => function ($query) {
+        $query->where('status', 'approved')->with(['shop', 'category', 'images']);
+      }])->first();
     });
 
     if (!$category) {
@@ -82,6 +84,7 @@ class CategoryController extends Controller
     }
 
     $category = Category::create($data);
+    Cache::forget('categories_all');
 
     return response()->json([
       'success' => true,
@@ -101,6 +104,7 @@ class CategoryController extends Controller
    */
   public function update(UpdateCategoryRequest $request, Category $category): JsonResponse
   {
+    $oldSlug = $category->slug;
     $data = $request->validated();
 
     if (isset($data['slug']) && empty($data['slug'])) {
@@ -108,6 +112,9 @@ class CategoryController extends Controller
     }
 
     $category->update($data);
+    Cache::forget('categories_all');
+    Cache::forget("category_{$oldSlug}");
+    Cache::forget("category_{$category->slug}");
 
     return response()->json([
       'success' => true,
@@ -132,7 +139,10 @@ class CategoryController extends Controller
       ], 409);
     }
 
+    $slug = $category->slug;
     $category->delete();
+    Cache::forget('categories_all');
+    Cache::forget("category_{$slug}");
 
     return response()->json([
       'success' => true,

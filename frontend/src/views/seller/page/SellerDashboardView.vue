@@ -3,47 +3,30 @@ import type { AnalyticsSalesRow, Order, SellerOverview } from '@/types'
 import Button from 'primevue/button'
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { sellerAnalyticsService } from '@/services/sellerAnalyticsService'
+import { sellerOrderService } from '@/services/sellerOrderService'
+import { getApiErrorMessage } from '@/services/apiError'
+import { useToast } from 'primevue/usetoast'
 
 const router = useRouter()
+const toast = useToast()
 const isLoading = ref<boolean>(true)
 
 // Stats Overview berdasarkan interface SellerOverview
-const sellerOverview = ref<SellerOverview>({
-  total_products: 142,
-  total_orders: 28,
-  total_revenue: 'Rp 4.2M',
-  pending_orders_count: 2
-})
+const sellerOverview = ref<SellerOverview>({ total_products: 0, total_orders: 0, total_revenue: '0', pending_orders_count: 0 })
 
 // Rating Toko (Properti opsional/display)
-const shopRating = ref({
-  score: 4.8,
-  percentile: 'Top 5%',
-  productGrowth: '+12%',
-  orderGrowth: '+5'
-})
+const shopRating = ref({ score: 0, percentile: 'Belum ada rating', productGrowth: 'Data aktual', orderGrowth: 'Data aktual' })
 
 // Sales Chart Data berdasarkan AnalyticsSalesRow
-const salesAnalytics = ref<AnalyticsSalesRow[]>([
-  { date: 'Sen', revenue: '1200000', orders_count: 35 },
-  { date: 'Sel', revenue: '2100000', orders_count: 58 },
-  { date: 'Rab', revenue: '1500000', orders_count: 42 },
-  { date: 'Kam', revenue: '3200000', orders_count: 75 },
-  { date: 'Jum', revenue: '4200000', orders_count: 92 },
-  { date: 'Sab', revenue: '2800000', orders_count: 68 },
-  { date: 'Min', revenue: '1900000', orders_count: 50 }
-])
+const salesAnalytics = ref<AnalyticsSalesRow[]>([])
 
 // Pesanan Terbaru (Recent Orders Display)
-const recentActivity = ref([
-  { id: 1, title: 'Kopi Luwak Premium', location: 'Jakarta', time: '2 menit yang lalu', icon: 'pi pi-coffee', color: 'text-emerald-600 bg-emerald-100' },
-  { id: 2, title: 'Batik Tulis Kemeja', location: 'Bandung', time: '15 mins ago', icon: 'pi pi-shopping-bag', color: 'text-blue-600 bg-blue-100' },
-  { id: 3, title: 'Sambal Roa 200g', location: 'Surabaya', time: '1 hour ago', icon: 'pi pi-compass', color: 'text-amber-600 bg-amber-100' },
-  { id: 4, title: 'Rotan Chair Set', location: 'Bali', time: '2 hours ago', icon: 'pi pi-box', color: 'text-indigo-600 bg-indigo-100' }
-])
+const recentActivity = ref<any[]>([])
 
 // Pesanan Tertunda berdasarkan interface Order
-const pendingOrders = ref<Order[]>([
+const pendingOrders = ref<Order[]>([])
+/* const legacyPendingOrders = ref<Order[]>([
   {
     id: 101,
     order_number: 'INV-2024-001',
@@ -134,17 +117,24 @@ const pendingOrders = ref<Order[]>([
       }
     ]
   }
-])
+]) */
 
-// Simulasi Loading Fetching Data
-onMounted(() => {
-  setTimeout(() => {
-    isLoading.value = false
-  }, 500)
+onMounted(async () => {
+  try {
+    const [overview, sales, orders] = await Promise.all([
+      sellerAnalyticsService.getOverview(), sellerAnalyticsService.getSales({ period: 'daily' }), sellerOrderService.list({ status: 'pending', per_page: 5 })
+    ])
+    sellerOverview.value = overview
+    salesAnalytics.value = sales as AnalyticsSalesRow[]
+    pendingOrders.value = orders.data
+    recentActivity.value = orders.data.slice(0, 4).map((order) => ({ id: order.id, title: order.order_number, location: order.shipping_address, time: order.created_at, icon: 'pi pi-shopping-bag', color: 'text-blue-600 bg-blue-100' }))
+  } catch (error) { toast.add({ severity: 'error', summary: 'Dashboard gagal dimuat', detail: getApiErrorMessage(error), life: 3500 }) }
+  finally { isLoading.value = false }
 })
 
-const handleProcessOrder = (orderId: number) => {
-  alert(`Memproses Pesanan #${orderId}`)
+const handleProcessOrder = async (orderId: number) => {
+  try { await sellerOrderService.process(orderId); pendingOrders.value = pendingOrders.value.filter((order) => order.id !== orderId); toast.add({ severity: 'success', summary: 'Pesanan diproses', detail: 'Status pesanan diperbarui.', life: 2500 }) }
+  catch (error) { toast.add({ severity: 'error', summary: 'Gagal memproses', detail: getApiErrorMessage(error), life: 3500 }) }
 }
 
 const handleOrderDetail = (orderId: number) => {

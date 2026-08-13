@@ -1,24 +1,24 @@
-import type { Category, CreateCategoryRequest, PaginatedResponse, UpdateCategoryRequest } from '../types';
+import type { Category, CreateCategoryRequest, SingleResponse, UpdateCategoryRequest } from '../types';
 import apiClient from './apiClient';
 
 export const categoryService = {
-  async list(): Promise<PaginatedResponse<Category>> {
+  async list(): Promise<Category[]> {
     const response = await apiClient.get('/categories');
-    return response.data.data;
+    return response.data.data ?? [];
   },
 
-  async getBySlug(slug: string): Promise<PaginatedResponse<Category>> {
-    const response = await apiClient.get<PaginatedResponse<Category>>(`/categories/${slug}`);
+  async getBySlug(slug: string): Promise<SingleResponse<Category>> {
+    const response = await apiClient.get<SingleResponse<Category>>(`/categories/${slug}`);
     return response.data;
   },
 
-  async create(data: CreateCategoryRequest): Promise<PaginatedResponse<Category>> {
-    const response = await apiClient.post<PaginatedResponse<Category>>('/categories', data);
+  async create(data: CreateCategoryRequest) {
+    const response = await apiClient.post('/categories', data);
     return response.data;
   },
 
-  async update(slug: string, data: UpdateCategoryRequest): Promise<PaginatedResponse<Category>> {
-    const response = await apiClient.put<PaginatedResponse<Category>>(`/categories/${slug}`, data);
+  async update(slug: string, data: UpdateCategoryRequest) {
+    const response = await apiClient.put(`/categories/${slug}`, data);
     return response.data;
   },
 

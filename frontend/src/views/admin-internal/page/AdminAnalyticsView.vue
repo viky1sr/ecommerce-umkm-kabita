@@ -13,90 +13,48 @@ import AdminCategoryRevenueChart from '../components/analytics/AdminCategoryReve
 import AdminDailySalesChart from '../components/analytics/AdminDailySalesChart.vue';
 import AdminTopProductsTable, { type TopProductItem } from '../components/analytics/AdminTopProductsTable.vue';
 import AdminTopShopsChart from '../components/analytics/AdminTopShopsChart.vue';
+import { adminAnalyticsService } from '@/services/adminAnalyticsService';
+import { getApiErrorMessage } from '@/services/apiError';
 
 const isLoading = ref<boolean>(true);
 const analyticsContainer = ref<HTMLElement | null>(null);
 const toast = useToast();
 
-// Mock Data State
 const statCards = ref<StatMetric[]>([]);
 const topProducts = ref<TopProductItem[]>([]);
+const categoryRevenue = ref<Array<{ name: string; revenue: string }>>([])
+const topSellers = ref<Array<{ name: string; total_revenue: string }>>([])
+const sales = ref<Array<{ date: string; revenue: string }>>([])
 
-// Fetch Data Simulation
-const fetchAnalyticsData = () => {
+const formatMoney = (value: string | number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(Number(value) || 0)
+
+const fetchAnalyticsData = async () => {
   isLoading.value = true;
-
-  setTimeout(() => {
-    // Stat Cards Mock Data
+  try {
+    const [platform, products, categories, sellers, salesRows] = await Promise.all([
+      adminAnalyticsService.getPlatformStats(),
+      adminAnalyticsService.getTopProducts(10),
+      adminAnalyticsService.getCategoryRevenue(10),
+      adminAnalyticsService.getTopSellers(10),
+      adminAnalyticsService.getSales('monthly'),
+    ])
+    categoryRevenue.value = categories
+    topSellers.value = sellers
+    sales.value = salesRows
+    const orders = platform.monthly_transactions.reduce((sum, row) => sum + row.transactions, 0)
+    const revenue = Number(platform.platform_revenue)
     statCards.value = [
-      {
-        title: 'Total Revenue',
-        value: 'Rp 45.2jt',
-        percentage: '15%',
-        isPositive: true,
-        icon: 'pi pi-wallet'
-      },
-      {
-        title: 'Total Orders',
-        value: '342',
-        percentage: '8%',
-        isPositive: true,
-        icon: 'pi pi-shopping-bag'
-      },
-      {
-        title: 'Total Products Sold',
-        value: '1,247',
-        percentage: '12%',
-        isPositive: true,
-        icon: 'pi pi-box'
-      },
-      {
-        title: 'Average Order Value',
-        value: 'Rp 132rb',
-        percentage: '5%',
-        isPositive: true,
-        icon: 'pi pi-chart-line'
-      }
+      { title: 'Total Revenue', value: formatMoney(revenue), percentage: `${platform.verified_shops} toko aktif`, isPositive: true, icon: 'pi pi-wallet' },
+      { title: 'Total Orders', value: orders.toLocaleString('id-ID'), percentage: `${platform.total_users} pengguna`, isPositive: true, icon: 'pi pi-shopping-bag' },
+      { title: 'Total Produk', value: platform.total_products.toLocaleString('id-ID'), percentage: `${platform.pending_shops} toko pending`, isPositive: true, icon: 'pi pi-box' },
+      { title: 'Rata-rata Pesanan', value: formatMoney(orders ? revenue / orders : 0), percentage: 'Data aktual', isPositive: true, icon: 'pi pi-chart-line' }
     ];
-
-    // Top 10 Products Mock Data
-    topProducts.value = [
-      {
-        rank: 1,
-        productName: 'Kemeja Pria Kasual',
-        shopName: 'Fashion Store A',
-        qtySold: 450,
-        revenue: 'Rp 4.5jt',
-        profit: 'Rp 850rb'
-      },
-      {
-        rank: 2,
-        productName: 'Smartwatch Pro X',
-        shopName: 'Elektronik Jaya',
-        qtySold: 312,
-        revenue: 'Rp 6.2jt',
-        profit: 'Rp 1.2jt'
-      },
-      {
-        rank: 3,
-        productName: 'Set Gelas Keramik',
-        shopName: 'Kerajinan Lokal',
-        qtySold: 280,
-        revenue: 'Rp 2.8jt',
-        profit: 'Rp 900rb'
-      },
-      {
-        rank: 4,
-        productName: 'Serum Wajah Glowing',
-        shopName: 'Beauty Care',
-        qtySold: 215,
-        revenue: 'Rp 3.1jt',
-        profit: 'Rp 1.5jt'
-      }
-    ];
-
+    topProducts.value = products.map((product, index) => ({ rank: index + 1, productName: product.name, shopName: (product as any).shop_name || product.shop?.name || '-', qtySold: (product as any).total_qty_sold || product.total_sold || 0, revenue: formatMoney((product as any).total_revenue || product.total_revenue), profit: '-' }))
+  } catch (error) {
+    toast.add({ severity: 'error', summary: 'Gagal memuat analitik', detail: getApiErrorMessage(error), life: 3500 })
+  } finally {
     isLoading.value = false;
-  }, 800);
+  }
 };
 
 // ==========================================
@@ -203,11 +161,11 @@ onMounted(() => {
     <AdminAnalyticsStatCards :stats="statCards" />
 
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <AdminCategoryRevenueChart />
-      <AdminTopShopsChart />
+      <AdminCategoryRevenueChart :rows="categoryRevenue" />
+      <AdminTopShopsChart :rows="topSellers" />
     </div>
 
-    <AdminDailySalesChart />
+    <AdminDailySalesChart :rows="sales" />
 
     <AdminTopProductsTable :products="topProducts" />
   </div>

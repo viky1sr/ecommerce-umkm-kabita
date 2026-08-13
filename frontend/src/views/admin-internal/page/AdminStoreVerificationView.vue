@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import { getApiErrorMessage } from '@/services/apiError'
+import { adminShopService } from '@/services/adminShopService'
+import type { Shop } from '@/types/entities'
+import Message from 'primevue/message'
 import ProgressSpinner from 'primevue/progressspinner'
 import { useToast } from 'primevue/usetoast'
 import { computed, onMounted, ref } from 'vue'
@@ -9,52 +13,38 @@ import AdminStoreFilter from '../components/store-verification/AdminStoreFilter.
 import AdminStoreRejectModal from '../components/store-verification/AdminStoreRejectModal.vue'
 import AdminStoreTable from '../components/store-verification/AdminStoreTable.vue'
 
-import type { Shop } from '@/types/entities'
-
 const toast = useToast()
 
-// States
 const isLoading = ref(true)
+const isError = ref(false)
+const errorMessage = ref('')
 const activeTab = ref('pending')
+const shops = ref<Partial<Shop>[]>([])
 const selectedShop = ref<Partial<Shop> | null>(null)
 
-// Modal Visibilities
 const showDetailModal = ref(false)
 const showApproveModal = ref(false)
 const showRejectModal = ref(false)
 
-// Mock Data
-const mockShops = ref<Partial<Shop>[]>([
-  {
-    id: 101,
-    name: 'Toko Roti Makmur',
-    status: 'pending',
-    logo: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&q=80&w=150',
-    description: 'Toko Roti Makmur adalah usaha mikro yang bergerak di bidang pembuatan roti tawar dan roti manis dengan resep tradisional keluarga. Kapasitas produksi harian mencapai 500 pcs.',
-    seller: { id: 1, name: 'Budi Santoso', email: 'budi.makmur@example.com', phone: '+62 812 3456 7890', address: 'Jl. Sudirman No. 45, Komplek Ruko Sentra Bisnis Blok B2, Kelurahan Melawai, Kecamatan Kebayoran Baru, Jakarta Selatan, 12160', role: 'seller', status: 'active' } as any
-  },
-  {
-    id: 102,
-    name: 'Maju Jaya Elektronik',
-    status: 'pending',
-    logo: 'https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?auto=format&fit=crop&q=80&w=150',
-    description: 'Distributor alat elektronik rumah tangga.',
-    seller: { id: 2, name: 'Agus Wijaya', email: 'agus@example.com', phone: '+62 899 7777 8888', role: 'seller', status: 'active' } as any
-  },
-  {
-    id: 103,
-    name: 'Cantika Fashion',
-    status: 'pending',
-    logo: 'https://images.unsplash.com/photo-1441984904996-e0b6ba687e04?auto=format&fit=crop&q=80&w=150',
-    description: 'Menjual aneka pakaian wanita masa kini.',
-    seller: { id: 3, name: 'Siti Aminah', email: 'siti@example.com', phone: '+62 811 2222 3333', role: 'seller', status: 'active' } as any
+const pendingCount = computed(() => shops.value.filter((shop) => shop.status === 'pending').length)
+const filteredShops = computed(() => shops.value.filter((shop) => shop.status === activeTab.value))
+
+const fetchShops = async () => {
+  isLoading.value = true
+  isError.value = false
+  errorMessage.value = ''
+
+  try {
+    const response = await adminShopService.listPending({ per_page: 100 })
+    shops.value = response.data
+  } catch (error) {
+    isError.value = true
+    errorMessage.value = getApiErrorMessage(error, 'Gagal memuat data verifikasi toko.')
+  } finally {
+    isLoading.value = false
   }
-])
+}
 
-const pendingCount = computed(() => mockShops.value.filter(s => s.status === 'pending').length)
-const filteredShops = computed(() => mockShops.value.filter(s => s.status === activeTab.value))
-
-// Handlers
 const openDetail = (shop: Partial<Shop>) => {
   selectedShop.value = shop
   showDetailModal.value = true
@@ -70,38 +60,49 @@ const openReject = (shop: Partial<Shop>) => {
   showRejectModal.value = true
 }
 
-// Action Mocks
-const executeApprove = () => {
-  if (selectedShop.value) {
-    const shopIndex = mockShops.value.findIndex(s => s.id === selectedShop.value?.id)
-    if (shopIndex !== -1) {
-      const shop = mockShops.value[shopIndex]
-      if (shop) shop.status = 'verified'
-    }
+const executeApprove = async () => {
+  if (!selectedShop.value?.id) return
+
+  try {
+    const verifiedShop = await adminShopService.verify(selectedShop.value.id)
+    shops.value = shops.value.map((shop) => (shop.id === verifiedShop.id ? verifiedShop : shop))
+
+    showApproveModal.value = false
+    showDetailModal.value = false
+    toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Verifikasi toko disetujui.', life: 3000 })
+  } catch (error) {
+    toast.add({
+      severity: 'error',
+      summary: 'Gagal',
+      detail: getApiErrorMessage(error, 'Gagal memverifikasi toko.'),
+      life: 3000,
+    })
   }
-  showApproveModal.value = false
-  showDetailModal.value = false
-  toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Verifikasi toko disetujui.', life: 3000 })
 }
 
-const executeReject = (payload: { reason: string }) => {
-  if (selectedShop.value) {
-    const shopIndex = mockShops.value.findIndex(s => s.id === selectedShop.value?.id)
-    if (shopIndex !== -1) {
-      const shop = mockShops.value[shopIndex]
-      if (shop) shop.status = 'rejected'
-    }
+const executeReject = async (payload: { reason: string }) => {
+  if (!selectedShop.value?.id) return
+
+  try {
+    const rejectedShop = await adminShopService.reject(selectedShop.value.id, {
+      rejection_reason: payload.reason,
+    })
+    shops.value = shops.value.map((shop) => (shop.id === rejectedShop.id ? rejectedShop : shop))
+
+    showRejectModal.value = false
+    showDetailModal.value = false
+    toast.add({ severity: 'warn', summary: 'Ditolak', detail: 'Toko telah ditolak dengan alasan yang direkam.', life: 3000 })
+  } catch (error) {
+    toast.add({
+      severity: 'error',
+      summary: 'Gagal',
+      detail: getApiErrorMessage(error, 'Gagal menolak toko.'),
+      life: 3000,
+    })
   }
-  showRejectModal.value = false
-  toast.add({ severity: 'warn', summary: 'Ditolak', detail: 'Toko telah ditolak dengan alasan yang direkam.', life: 3000 })
 }
 
-onMounted(() => {
-  // Simulasi GET Data dengan Fullscreen Circular Loader
-  setTimeout(() => {
-    isLoading.value = false
-  }, 1200)
-})
+onMounted(fetchShops)
 </script>
 
 <template>
@@ -117,6 +118,8 @@ onMounted(() => {
       <h1 class="text-2xl font-bold text-slate-800">Verifikasi Toko</h1>
       <p class="text-sm text-slate-500 mt-1">Tinjau dan verifikasi toko yang terdaftar di platform</p>
     </div>
+
+    <Message v-if="isError" severity="error" class="mb-4">{{ errorMessage }}</Message>
 
     <AdminStoreFilter v-model:activeTab="activeTab" :pendingCount="pendingCount" />
 

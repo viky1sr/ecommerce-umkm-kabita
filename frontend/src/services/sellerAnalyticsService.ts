@@ -18,12 +18,19 @@ export const sellerAnalyticsService = {
     end_date?: string;
   }): Promise<SalesRow[]> {
     const response = await apiClient.get('/seller/analytics/sales', { params: filters });
-    return response.data.data;
+    return response.data.data.map((row: any) => ({
+      ...row,
+      total_revenue: row.total_revenue ?? row.revenue ?? '0',
+    }));
   },
 
   async getTopProducts(): Promise<SellerTopProduct[]> {
     const response = await apiClient.get('/seller/analytics/products/top');
-    return response.data.data;
+    return response.data.data.map((row: any) => ({
+      ...row,
+      total_sold: row.total_sold ?? row.total_qty_sold ?? 0,
+      total_revenue: row.total_revenue ?? row.revenue ?? '0',
+    }));
   },
 
   async getLowStockProducts(): Promise<LowStockProduct[]> {

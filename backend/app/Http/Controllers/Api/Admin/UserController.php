@@ -57,7 +57,7 @@ class UserController extends Controller
       default => $query->orderBy('created_at', 'desc'),
     };
 
-    $perPage = $request->input('per_page', 15);
+    $perPage = min(max((int) $request->input('per_page', 15), 1), 100);
     $users = $query->paginate($perPage);
 
     return response()->json([

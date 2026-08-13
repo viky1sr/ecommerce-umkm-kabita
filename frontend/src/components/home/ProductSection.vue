@@ -4,6 +4,7 @@ import { publicProductService } from '@/services/publicProductService';
 import type { Product } from '@/types';
 import { useToast } from 'primevue/usetoast';
 import { onMounted, ref } from 'vue';
+import ProgressSpinner from 'primevue/progressspinner';
 
 const isLoadingGet = ref(true)
 const listProduct = ref<Product[]>([]);
@@ -53,7 +54,7 @@ onMounted(() => {
       </div>
     </Transition>
 
-    <div v-if="isLoadingGet!" class="w-full h-fit">
+    <div v-if="!isLoadingGet" class="w-full h-fit">
       <ProductGrid :products="listProduct" />
     </div>
 

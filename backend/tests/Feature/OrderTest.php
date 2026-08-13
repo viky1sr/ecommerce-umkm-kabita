@@ -27,7 +27,7 @@ class OrderTest extends TestCase
       'status' => OrderStatus::PENDING,
     ]);
 
-    $response = $this->actingAs($buyer)->getJson('/api/orders');
+    $response = $this->actingAs($buyer)->getJson('/api/v1/orders');
 
     $response->assertStatus(200)
       ->assertJsonCount(1, 'data')
@@ -48,7 +48,7 @@ class OrderTest extends TestCase
       'shop_id' => $shop->id,
     ]);
 
-    $response = $this->actingAs($buyer)->getJson('/api/orders');
+    $response = $this->actingAs($buyer)->getJson('/api/v1/orders');
 
     $response->assertStatus(200)
       ->assertJsonCount(0, 'data');
@@ -70,7 +70,7 @@ class OrderTest extends TestCase
       'status' => OrderStatus::DELIVERED,
     ]);
 
-    $response = $this->actingAs($buyer)->getJson('/api/orders?status=' . OrderStatus::PENDING->value);
+    $response = $this->actingAs($buyer)->getJson('/api/v1/orders?status=' . OrderStatus::PENDING->value);
 
     $response->assertStatus(200)
       ->assertJsonCount(1, 'data')
@@ -92,7 +92,7 @@ class OrderTest extends TestCase
       'shop_id' => $shop->id,
     ]);
 
-    $response = $this->actingAs($buyer)->getJson('/api/orders/' . $order->id);
+    $response = $this->actingAs($buyer)->getJson('/api/v1/orders/' . $order->id);
 
     $response->assertStatus(200)
       ->assertJsonFragment([
@@ -112,7 +112,7 @@ class OrderTest extends TestCase
       'shop_id' => $shop->id,
     ]);
 
-    $response = $this->actingAs($buyer)->getJson('/api/orders/' . $order->id);
+    $response = $this->actingAs($buyer)->getJson('/api/v1/orders/' . $order->id);
 
     $response->assertStatus(403);
   }
@@ -127,7 +127,7 @@ class OrderTest extends TestCase
       'status' => OrderStatus::PENDING,
     ]);
 
-    $response = $this->actingAs($seller)->getJson('/api/seller/orders');
+    $response = $this->actingAs($seller)->getJson('/api/v1/seller/orders');
 
     $response->assertStatus(200)
       ->assertJsonCount(1, 'data')
@@ -147,7 +147,7 @@ class OrderTest extends TestCase
       'shop_id' => $shop->id,
     ]);
 
-    $response = $this->actingAs($seller)->getJson('/api/seller/orders');
+    $response = $this->actingAs($seller)->getJson('/api/v1/seller/orders');
 
     $response->assertStatus(200)
       ->assertJsonCount(0, 'data');
@@ -167,7 +167,7 @@ class OrderTest extends TestCase
       'status' => OrderStatus::DELIVERED,
     ]);
 
-    $response = $this->actingAs($seller)->getJson('/api/seller/orders?status=' . OrderStatus::PENDING->value);
+    $response = $this->actingAs($seller)->getJson('/api/v1/seller/orders?status=' . OrderStatus::PENDING->value);
 
     $response->assertStatus(200)
       ->assertJsonCount(1, 'data')
@@ -186,7 +186,7 @@ class OrderTest extends TestCase
       'shop_id' => $shop->id,
     ]);
 
-    $response = $this->actingAs($seller)->getJson('/api/seller/orders/' . $order->id);
+    $response = $this->actingAs($seller)->getJson('/api/v1/seller/orders/' . $order->id);
 
     $response->assertStatus(200)
       ->assertJsonFragment([
@@ -205,7 +205,7 @@ class OrderTest extends TestCase
       'shop_id' => $shop->id,
     ]);
 
-    $response = $this->actingAs($seller)->getJson('/api/seller/orders/' . $order->id);
+    $response = $this->actingAs($seller)->getJson('/api/v1/seller/orders/' . $order->id);
 
     $response->assertStatus(403);
   }

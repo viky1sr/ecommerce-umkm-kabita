@@ -1,17 +1,19 @@
 <script setup lang="ts">
 import Chart from 'primevue/chart';
-import { onMounted, ref } from 'vue';
+import { ref, watch } from 'vue';
+
+const props = defineProps<{ rows: Array<{ name: string; revenue: string }> }>();
 
 const chartData = ref();
 const chartOptions = ref();
 
-onMounted(() => {
+watch(() => props.rows, () => {
   chartData.value = {
-    labels: ['Fashion', 'Makanan', 'Elektronik', 'Kecantikan', 'Kesehatan', 'Lainnya'],
+    labels: props.rows.map((row) => row.name),
     datasets: [
       {
         label: 'Revenue (Juta Rp)',
-        data: [11.5, 9.8, 7.5, 5.8, 5.0, 2.1],
+        data: props.rows.map((row) => Number(row.revenue)),
         backgroundColor: [
           '#2563eb', // Fashion (Blue)
           '#10b981', // Makanan (Green)
@@ -44,18 +46,17 @@ onMounted(() => {
       },
       y: {
         beginAtZero: true,
-        max: 15,
         grid: { color: '#f1f5f9' },
         ticks: {
           stepSize: 5,
           font: { size: 11 },
           color: '#64748b',
-          callback: (value: number) => `${value}jt`
+          callback: (value: number) => `${value.toLocaleString('id-ID')}`
         }
       }
     }
   };
-});
+}, { immediate: true });
 </script>
 
 <template>

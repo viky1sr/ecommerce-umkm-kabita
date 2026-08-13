@@ -1,5 +1,11 @@
 <script setup lang="ts">
-import type { Product } from '@/types/entities'
+import { getApiErrorMessage } from '@/services/apiError'
+import { adminProductService } from '@/services/adminProductService'
+import { adminPaymentService } from '@/services/adminPaymentService'
+import type { Payment, Product } from '@/types/entities'
+import Button from 'primevue/button'
+import Dialog from 'primevue/dialog'
+import Message from 'primevue/message'
 import ProgressSpinner from 'primevue/progressspinner'
 import { useToast } from 'primevue/usetoast'
 import { computed, onMounted, ref } from 'vue'
@@ -11,72 +17,75 @@ import AdminProductTable from '../components/product-verification/AdminProductTa
 
 const toast = useToast()
 
-// States
 const isLoading = ref(true)
+const isError = ref(false)
+const errorMessage = ref('')
 const activeTab = ref('pending')
+const verificationTab = ref<'payments' | 'products'>('payments')
+const payments = ref<Payment[]>([])
+const selectedProof = ref<string | null>(null)
+const proofDialogVisible = ref(false)
+const products = ref<Partial<Product>[]>([])
 const selectedProduct = ref<Partial<Product> | null>(null)
 
-// Modal Visibilities
 const showDetailModal = ref(false)
 const showApproveModal = ref(false)
 const showRejectModal = ref(false)
+const isSubmitting = ref(false)
 
-// Mock Data Produk
-const mockProducts = ref<Partial<Product>[]>([
-  {
-    id: 201,
-    name: 'Kemeja Batik Pria Motif Megamendung',
-    price: '150000',
-    stock: 45,
-    weight: 250,
-    status: 'pending',
-    description: 'Kemeja batik pria lengan panjang dengan bahan katun premium yang adem dan nyaman dipakai harian maupun acara formal.',
-    category: { id: 1, name: 'Pakaian Pria', slug: 'pakaian-pria' } as any,
-    shop: { id: 10, name: 'Batik Kencana', seller: { name: 'Budi Santoso', email: 'budi@batikkencana.com', phone: '+62 812 3456 7890' } } as any,
-    images: [{ id: 1, url: 'https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?auto=format&fit=crop&q=80&w=400' }]
-  },
-  {
-    id: 202,
-    name: 'Biji Kopi Arabika Toraja 1kg',
-    price: '220000',
-    stock: 120,
-    weight: 1000,
-    status: 'pending',
-    description: 'Biji kopi pilihan khas Toraja dengan roasted profile medium-to-dark. Aroma harum dan cita rasa otentik.',
-    category: { id: 2, name: 'Makanan & Minuman', slug: 'makanan-minuman' } as any,
-    shop: { id: 11, name: 'Kopi Senja', seller: { name: 'Dewi Lestari', email: 'dewi@kopisenja.com', phone: '+62 811 9988 7766' } } as any,
-    images: [{ id: 2, url: 'https://images.unsplash.com/photo-1559056199-641a0ac8b55e?auto=format&fit=crop&q=80&w=400' }]
-  },
-  {
-    id: 203,
-    name: 'Set Pisau Dapur Dapur Stainless',
-    price: '85000',
-    stock: 30,
-    weight: 600,
-    status: 'pending',
-    description: 'Set pisau dapur isi 5 pcs tajam dan anti karat. Dilengkapi dengan telenan plastik antislip.',
-    category: { id: 3, name: 'Perlengkapan Rumah', slug: 'perlengkapan-rumah' } as any,
-    shop: { id: 12, name: 'Makmur Nusantara', seller: { name: 'Agus Wijaya', email: 'agus@makmur.com', phone: '+62 856 1122 3344' } } as any,
-    images: [{ id: 3, url: 'https://images.unsplash.com/photo-1593618998160-e34014e67546?auto=format&fit=crop&q=80&w=400' }]
-  },
-  {
-    id: 204,
-    name: 'Pupuk Organik Cair 500ml',
-    price: '45000',
-    stock: 200,
-    weight: 550,
-    status: 'pending',
-    description: 'Pupuk organik cair penyubur tanaman hias dan sayur-sayuran.',
-    category: { id: 4, name: 'Pertanian', slug: 'pertanian' } as any,
-    shop: { id: 13, name: 'Tani Subur', seller: { name: 'Rian Pratama', email: 'rian@tanisubur.com', phone: '+62 822 5544 3322' } } as any,
-    images: [{ id: 4, url: 'https://images.unsplash.com/photo-1585314062340-f1a5a7c9328d?auto=format&fit=crop&q=80&w=400' }]
+const pendingCount = computed(() => products.value.filter((p) => p.status === 'pending').length)
+const pendingPaymentCount = computed(() => payments.value.length)
+const formatCurrency = (value: string | number) => new Intl.NumberFormat('id-ID', {
+  style: 'currency', currency: 'IDR', maximumFractionDigits: 0,
+}).format(Number(value) || 0)
+const filteredProducts = computed(() => products.value.filter((p) => p.status === activeTab.value))
+
+const fetchProducts = async () => {
+  isLoading.value = true
+  isError.value = false
+  errorMessage.value = ''
+
+  try {
+    const response = await adminProductService.listPending({ per_page: 100 })
+    products.value = response.data
+  } catch (error) {
+    isError.value = true
+    errorMessage.value = getApiErrorMessage(error, 'Gagal memuat data verifikasi produk.')
+  } finally {
+    isLoading.value = false
   }
-])
+}
 
-const pendingCount = computed(() => mockProducts.value.filter((p) => p.status === 'pending').length)
-const filteredProducts = computed(() => mockProducts.value.filter((p) => p.status === activeTab.value))
+const fetchPayments = async () => {
+  try {
+    const response = await adminPaymentService.listPending({ per_page: 100 })
+    payments.value = response.data
+  } catch (error) {
+    isError.value = true
+    errorMessage.value = getApiErrorMessage(error, 'Gagal memuat pembayaran pending.')
+  }
+}
 
-// Handlers Modal
+const verifyPayment = async (payment: Payment) => {
+  try {
+    await adminPaymentService.verify(payment.id)
+    payments.value = payments.value.filter((item) => item.id !== payment.id)
+    toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Pembayaran berhasil diverifikasi.', life: 3000 })
+  } catch (error) {
+    toast.add({ severity: 'error', summary: 'Gagal', detail: getApiErrorMessage(error, 'Pembayaran gagal diverifikasi.'), life: 4000 })
+  }
+}
+
+const rejectPayment = async (payment: Payment) => {
+  try {
+    await adminPaymentService.reject(payment.id, { rejection_reason: 'Bukti pembayaran tidak valid.' })
+    payments.value = payments.value.filter((item) => item.id !== payment.id)
+    toast.add({ severity: 'warn', summary: 'Ditolak', detail: 'Pembayaran ditolak.', life: 3000 })
+  } catch (error) {
+    toast.add({ severity: 'error', summary: 'Gagal', detail: getApiErrorMessage(error, 'Pembayaran gagal ditolak.'), life: 4000 })
+  }
+}
+
 const openDetail = (product: Partial<Product>) => {
   selectedProduct.value = product
   showDetailModal.value = true
@@ -92,37 +101,58 @@ const openReject = (product: Partial<Product>) => {
   showRejectModal.value = true
 }
 
-// Action Handlers
-const executeApprove = () => {
-  if (selectedProduct.value?.id) {
-    const pIndex = mockProducts.value.findIndex((p) => p.id === selectedProduct.value?.id)
-    if (pIndex !== -1 && mockProducts.value[pIndex]) {
-      mockProducts.value[pIndex].status = 'approved'
-    }
+const executeApprove = async () => {
+  if (!selectedProduct.value?.id || selectedProduct.value.status !== 'pending' || isSubmitting.value) return
+
+  isSubmitting.value = true
+  try {
+    const approvedProduct = await adminProductService.approve(selectedProduct.value.id)
+    products.value = products.value.filter((product) => product.id !== approvedProduct.id)
+
+    showApproveModal.value = false
+    showDetailModal.value = false
+    toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Produk disetujui untuk ditayangkan.', life: 3000 })
+  } catch (error) {
+    toast.add({
+      severity: 'error',
+      summary: 'Gagal',
+      detail: getApiErrorMessage(error, 'Gagal menyetujui produk.'),
+      life: 3000,
+    })
+  } finally {
+    isSubmitting.value = false
   }
-  showApproveModal.value = false
-  showDetailModal.value = false
-  toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Produk disetujui untuk ditayangkan.', life: 3000 })
 }
 
-const executeReject = (payload: { reason: string }) => {
-  if (selectedProduct.value?.id) {
-    const pIndex = mockProducts.value.findIndex((p) => p.id === selectedProduct.value?.id)
-    if (pIndex !== -1 && mockProducts.value[pIndex]) {
-      mockProducts.value[pIndex].status = 'rejected'
-      mockProducts.value[pIndex].rejection_reason = payload.reason
-    }
+const executeReject = async (payload: { reason: string }) => {
+  if (!selectedProduct.value?.id || selectedProduct.value.status !== 'pending' || isSubmitting.value) return
+
+  isSubmitting.value = true
+  try {
+    const rejectedProduct = await adminProductService.reject(selectedProduct.value.id, {
+      rejection_reason: payload.reason,
+    })
+
+    products.value = products.value.filter((product) => product.id !== rejectedProduct.id)
+
+    showRejectModal.value = false
+    showDetailModal.value = false
+    toast.add({ severity: 'warn', summary: 'Ditolak', detail: 'Pengajuan produk telah ditolak.', life: 3000 })
+  } catch (error) {
+    toast.add({
+      severity: 'error',
+      summary: 'Gagal',
+      detail: getApiErrorMessage(error, 'Gagal menolak produk.'),
+      life: 3000,
+    })
+  } finally {
+    isSubmitting.value = false
   }
-  showRejectModal.value = false
-  showDetailModal.value = false
-  toast.add({ severity: 'warn', summary: 'Ditolak', detail: 'Pengajuan produk telah ditolak.', life: 3000 })
 }
 
 onMounted(() => {
-  // Simulasi fetching API dengan Fullscreen Circular Spinner
-  setTimeout(() => {
-    isLoading.value = false
-  }, 1000)
+  fetchProducts()
+  fetchPayments()
 })
 </script>
 
@@ -136,20 +166,75 @@ onMounted(() => {
     </div>
 
     <div class="mb-6">
-      <h1 class="text-2xl font-bold text-slate-800">Verifikasi Produk</h1>
-      <p class="text-sm text-slate-500 mt-1">Tinjau dan verifikasi produk yang diajukan oleh seller</p>
+      <h1 class="text-2xl font-bold text-slate-800">Pusat Verifikasi</h1>
+      <p class="text-sm text-slate-500 mt-1">Periksa pembayaran buyer dan pengajuan produk seller.</p>
     </div>
 
-    <AdminProductFilter v-model:activeTab="activeTab" :pendingCount="pendingCount" />
+    <Message v-if="isError" severity="error" class="mb-4">{{ errorMessage }}</Message>
 
-    <AdminProductTable :products="filteredProducts" @viewDetail="openDetail" @approve="openApprove"
-      @reject="openReject" />
+    <div class="mb-6 flex flex-wrap gap-2 rounded-2xl border border-slate-200/80 bg-white p-2 shadow-sm">
+      <button type="button" class="rounded-xl px-4 py-2 text-sm font-semibold transition-colors"
+        :class="verificationTab === 'payments' ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-50'"
+        @click="verificationTab = 'payments'">
+        <i class="pi pi-wallet mr-2"></i>Pembayaran
+        <span class="ml-1">({{ pendingPaymentCount }})</span>
+      </button>
+      <button type="button" class="rounded-xl px-4 py-2 text-sm font-semibold transition-colors"
+        :class="verificationTab === 'products' ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-50'"
+        @click="verificationTab = 'products'">
+        <i class="pi pi-box mr-2"></i>Produk
+        <span class="ml-1">({{ pendingCount }})</span>
+      </button>
+    </div>
+
+    <div v-if="verificationTab === 'payments'" class="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+      <div class="border-b border-slate-100 p-5">
+        <h2 class="font-bold text-slate-800">Pembayaran Menunggu Verifikasi</h2>
+        <p class="mt-1 text-xs text-slate-500">Pastikan bukti transfer sesuai sebelum pesanan diproses seller.</p>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm">
+          <thead class="bg-slate-50 text-xs uppercase text-slate-500">
+            <tr><th class="px-5 py-3">Pesanan</th><th class="px-4 py-3">Buyer</th><th class="px-4 py-3">Toko</th><th class="px-4 py-3">Nominal</th><th class="px-4 py-3">Bukti</th><th class="px-5 py-3 text-right">Aksi</th></tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            <tr v-for="payment in payments" :key="payment.id" class="hover:bg-slate-50/70">
+              <td class="px-5 py-4 font-semibold text-slate-800">{{ payment.order?.order_number || `Order #${payment.order_id}` }}</td>
+              <td class="px-4 py-4 text-slate-600">{{ payment.order?.buyer?.name || '—' }}</td>
+              <td class="px-4 py-4 text-slate-600">{{ payment.order?.shop?.name || '—' }}</td>
+              <td class="px-4 py-4 font-semibold text-blue-600">{{ formatCurrency(payment.amount) }}</td>
+              <td class="px-4 py-4">
+                <Button v-if="payment.proof_image" label="Lihat bukti" icon="pi pi-image" text size="small" @click="selectedProof = payment.proof_image; proofDialogVisible = true" />
+                <span v-else class="text-xs text-slate-400">Belum ada</span>
+              </td>
+              <td class="px-5 py-4 text-right">
+                <div class="flex justify-end gap-2">
+                  <Button label="Tolak" severity="danger" outlined size="small" @click="rejectPayment(payment)" />
+                  <Button label="Verifikasi" icon="pi pi-check" size="small" @click="verifyPayment(payment)" />
+                </div>
+              </td>
+            </tr>
+            <tr v-if="!payments.length"><td colspan="6" class="px-5 py-12 text-center text-sm text-slate-400">Tidak ada pembayaran yang menunggu verifikasi.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div v-if="verificationTab === 'products'">
+      <AdminProductFilter v-model:activeTab="activeTab" :pendingCount="pendingCount" />
+
+      <AdminProductTable :products="filteredProducts" @viewDetail="openDetail" @approve="openApprove" @reject="openReject" />
+    </div>
 
     <AdminProductDetailModal v-model:visible="showDetailModal" :product="selectedProduct"
       @approve="openApprove(selectedProduct!)" @reject="openReject(selectedProduct!)" />
 
-    <AdminProductApproveModal v-model:visible="showApproveModal" :product="selectedProduct" @confirm="executeApprove" />
+    <AdminProductApproveModal v-model:visible="showApproveModal" :product="selectedProduct" :loading="isSubmitting" @confirm="executeApprove" />
 
     <AdminProductRejectModal v-model:visible="showRejectModal" :product="selectedProduct" @confirm="executeReject" />
+
+    <Dialog v-model:visible="proofDialogVisible" modal header="Bukti Pembayaran" :style="{ width: 'min(560px, 92vw)' }">
+      <img v-if="selectedProof" :src="selectedProof" alt="Bukti pembayaran" class="max-h-[70vh] w-full rounded-xl object-contain" />
+    </Dialog>
   </div>
 </template>

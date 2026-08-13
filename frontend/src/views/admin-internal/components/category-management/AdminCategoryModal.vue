@@ -45,7 +45,7 @@ const generateSlug = (text: string) => {
 };
 
 watch(name, (newName) => {
-  if (props!.categoryToEdit) {
+  if (!props.categoryToEdit) {
     slug.value = generateSlug(newName);
   }
 });
@@ -57,6 +57,7 @@ watch(
       name.value = newVal.name;
       slug.value = newVal.slug;
       icon.value = newVal.icon || '🍕';
+      description.value = newVal.description || '';
     } else {
       name.value = '';
       slug.value = '';
@@ -81,20 +82,17 @@ const selectEmoji = (selectedEmoji: string) => {
 };
 
 const handleSubmit = () => {
-  if (name!.value.trim()) return;
-
+  if (!name.value.trim()) return;
   isSubmitting.value = true;
-  setTimeout(() => {
-    emit('save', {
-      id: props.categoryToEdit?.id,
-      name: name.value,
-      slug: slug.value || generateSlug(name.value),
-      icon: icon.value,
-      description: description.value,
-    });
-    isSubmitting.value = false;
-    handleClose();
-  }, 400);
+  emit('save', {
+    id: props.categoryToEdit?.id,
+    name: name.value.trim(),
+    slug: slug.value || generateSlug(name.value),
+    icon: icon.value,
+    description: description.value,
+  });
+  isSubmitting.value = false;
+  handleClose();
 };
 </script>
 

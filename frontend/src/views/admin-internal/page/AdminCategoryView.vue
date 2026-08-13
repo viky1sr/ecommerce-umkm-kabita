@@ -7,6 +7,7 @@ import { useToast } from 'primevue/usetoast';
 import { computed, onMounted, ref } from 'vue';
 import AdminCategoryCardComponent from '../components/category-management/AdminCategoryCard.vue';
 import AdminCategoryModalComponent from '../components/category-management/AdminCategoryModal.vue';
+import { categoryService } from '@/services/categoryService';
 // import AdminCategoryCard from './components/AdminCategoryCard.vue';
 // import AdminCategoryModal from './components/AdminCategoryModal.vue';
 
@@ -21,25 +22,16 @@ const searchQuery = ref('');
 const isModalOpen = ref(false);
 const selectedCategory = ref<Category | null>(null);
 
-// Mock Data persis Screenshot 2026-08-09 182531.png
-const mockCategories: Partial<Category>[] = [
-  { id: 1, name: 'Makanan & Minuman', slug: 'makanan-minuman', icon: '🍕', product_count: 24 },
-  { id: 2, name: 'Fashion', slug: 'fashion', icon: '👕', product_count: 128 },
-  { id: 3, name: 'Elektronik', slug: 'elektronik', icon: '💻', product_count: 56 },
-  { id: 4, name: 'Rumah Tangga', slug: 'rumah-tangga', icon: '🏠', product_count: 92 },
-  { id: 5, name: 'Mainan & Hobi', slug: 'mainan-hobi', icon: '🧸', product_count: 14 },
-  { id: 6, name: 'Kecantikan', slug: 'kecantikan', icon: '💄', product_count: 43 },
-  { id: 7, name: 'Olahraga', slug: 'olahraga', icon: '👟', product_count: 31 },
-  { id: 8, name: 'Buku & Alat Tulis', slug: 'buku-alat-tulis', icon: '📚', product_count: 75 },
-];
-
-// Load GET Data dengan Fullscreen Circular Spinner
-const fetchCategories = () => {
+const fetchCategories = async () => {
   isLoading.value = true;
-  setTimeout(() => {
-    categories.value = mockCategories as Category[];
+  try {
+    const response = await categoryService.list();
+    categories.value = ((response as any)?.data ?? response) as Category[];
+  } catch (error) {
+    toast.add({ severity: 'error', summary: 'Gagal', detail: 'Kategori gagal dimuat dari API.', life: 3000 });
+  } finally {
     isLoading.value = false;
-  }, 700);
+  }
 };
 
 onMounted(() => {
@@ -48,7 +40,7 @@ onMounted(() => {
 
 // Computed Filtered Categories
 const filteredCategories = computed(() => {
-  if (searchQuery!.value.trim()) return categories.value;
+  if (!searchQuery.value.trim()) return categories.value;
   const q = searchQuery.value.toLowerCase();
   return categories.value.filter(
     (c) => c?.name?.toLowerCase().includes(q) || c?.slug?.toLowerCase().includes(q)
@@ -66,48 +58,27 @@ const openEditModal = (category: Category) => {
   isModalOpen.value = true;
 };
 
-const handleDeleteCategory = (category: Category) => {
-  categories.value = categories.value.filter((c) => c.id !== category.id);
-  toast.add({
-    severity: 'success',
-    summary: 'Berhasil',
-    detail: `Kategori "${category.name}" telah dihapus`,
-    life: 3000,
-  });
+const handleDeleteCategory = async (category: Category) => {
+  if (!category.slug) return;
+  try {
+    await categoryService.delete(category.slug);
+    categories.value = categories.value.filter((c) => c.id !== category.id);
+    toast.add({ severity: 'success', summary: 'Berhasil', detail: `Kategori "${category.name}" telah dihapus`, life: 3000 });
+  } catch (error: any) {
+    toast.add({ severity: 'error', summary: 'Gagal menghapus', detail: error?.response?.data?.message || 'Kategori mungkin masih memiliki produk.', life: 3500 });
+  }
 };
 
-const handleSaveCategory = (payload: Partial<Category>) => {
-  if (selectedCategory.value) {
-    // Edit Mode
-    const index = categories.value.findIndex((c) => c.id === payload.id);
-    if (index !== -1) {
-      categories.value[index] = {
-        ...categories.value[index],
-        ...payload,
-      };
-      toast.add({
-        severity: 'success',
-        summary: 'Pembaruan Berhasil',
-        detail: `Kategori "${payload.name}" berhasil diperbarui`,
-        life: 3000,
-      });
-    }
-  } else {
-    // Create Mode
-    const newCategory: Partial<Category> = {
-      id: Date.now(),
-      name: payload.name || '',
-      slug: payload.slug || '',
-      icon: payload.icon || '📦',
-      product_count: 0,
-    };
-    categories.value.unshift(newCategory);
-    toast.add({
-      severity: 'success',
-      summary: 'Kategori Ditambahkan',
-      detail: `Kategori "${newCategory.name}" berhasil dibuat`,
-      life: 3000,
-    });
+const handleSaveCategory = async (payload: Partial<Category>) => {
+  if (!payload.name) return;
+  try {
+    const data = { name: payload.name, ...(payload.slug ? { slug: payload.slug } : {}), ...(payload.icon ? { icon: payload.icon } : {}), ...(payload.description ? { description: payload.description } : {}) };
+    if (selectedCategory.value) await categoryService.update(selectedCategory.value.slug, data);
+    else await categoryService.create(data);
+    await fetchCategories();
+    toast.add({ severity: 'success', summary: 'Berhasil', detail: `Kategori "${payload.name}" tersimpan.`, life: 3000 });
+  } catch (error: any) {
+    toast.add({ severity: 'error', summary: 'Gagal menyimpan', detail: error?.response?.data?.message || 'Periksa nama dan slug kategori.', life: 3500 });
   }
 };
 </script>
@@ -158,7 +129,7 @@ const handleSaveCategory = (payload: Partial<Category>) => {
           @delete="handleDeleteCategory" />
       </div>
 
-      <div v-else-if="isLoading!" class="bg-white rounded-2xl border border-gray-100 p-12 text-center">
+      <div v-else class="bg-white rounded-2xl border border-gray-100 p-12 text-center">
         <div
           class="w-16 h-16 rounded-full bg-gray-50 flex items-center justify-center mx-auto text-2xl text-gray-400 mb-3">
           🔍

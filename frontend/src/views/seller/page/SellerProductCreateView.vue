@@ -9,8 +9,11 @@ import InputNumber from 'primevue/inputnumber'
 import InputText from 'primevue/inputtext'
 import Textarea from 'primevue/textarea'
 import { useToast } from 'primevue/usetoast'
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { categoryService } from '@/services/categoryService'
+import { sellerProductService } from '@/services/sellerProductService'
+import { getApiErrorMessage } from '@/services/apiError'
 
 const router = useRouter()
 const toast = useToast()
@@ -29,13 +32,9 @@ const form = ref({
   sku: '',
   images: [] as string[]
 })
+const imageFiles = ref<File[]>([])
 
-const categories = [
-  { label: 'Makanan & Minuman', value: 1 },
-  { label: 'Fashion & Pakaian', value: 2 },
-  { label: 'Home Decor', value: 3 },
-  { label: 'Elektronik', value: 4 }
-]
+const categories = ref<{ label: string; value: number }[]>([])
 
 // Drag & Drop / Upload Image Mock Handler
 const handleImageUpload = (e: Event, index?: number) => {
@@ -45,9 +44,11 @@ const handleImageUpload = (e: Event, index?: number) => {
     const imageUri = URL.createObjectURL(file)
     if (typeof index === 'number' && index < form.value.images.length) {
       form.value.images[index] = imageUri
+      imageFiles.value[index] = file
     } else {
       if (form.value.images.length < 5) {
         form.value.images.push(imageUri)
+        imageFiles.value.push(file)
       }
     }
   }
@@ -55,9 +56,10 @@ const handleImageUpload = (e: Event, index?: number) => {
 
 const removeImage = (index: number) => {
   form.value.images.splice(index, 1)
+  imageFiles.value.splice(index, 1)
 }
 
-const handleSave = () => {
+const handleSave = async () => {
   if (!form.value.name || !form.value.category_id || !form.value.price || form.value.stock === null) {
     toast.add({
       severity: 'warn',
@@ -69,7 +71,17 @@ const handleSave = () => {
   }
 
   isSubmitting.value = true
-  setTimeout(() => {
+  try {
+    const payload = new FormData()
+    payload.append('name', form.value.name)
+    payload.append('category_id', String(form.value.category_id))
+    payload.append('price', String(form.value.price))
+    payload.append('stock', String(form.value.stock))
+    if (form.value.cost_price !== null) payload.append('cost_price', String(form.value.cost_price))
+    if (form.value.weight !== null) payload.append('weight', String(form.value.weight))
+    payload.append('description', form.value.description)
+    imageFiles.value.forEach((file) => payload.append('images[]', file))
+    await sellerProductService.create(payload)
     isSubmitting.value = false
     toast.add({
       severity: 'success',
@@ -78,12 +90,24 @@ const handleSave = () => {
       life: 3000
     })
     router.push('/seller/produk')
-  }, 1200)
+  } catch (error) {
+    toast.add({ severity: 'error', summary: 'Gagal menyimpan', detail: getApiErrorMessage(error), life: 4000 })
+    isSubmitting.value = false
+  }
 }
 
 const goBack = () => {
   router.push('/seller/produk')
 }
+
+onMounted(async () => {
+  try {
+    const response = await categoryService.list()
+    categories.value = response.map((category) => ({ label: category.name, value: category.id }))
+  } catch (error) {
+    toast.add({ severity: 'error', summary: 'Kategori gagal dimuat', detail: getApiErrorMessage(error), life: 3500 })
+  }
+})
 </script>
 
 <template>

@@ -6,6 +6,7 @@ import Dialog from 'primevue/dialog';
 defineProps<{
   visible: boolean
   product: Partial<Product> | null
+  loading?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -38,7 +39,7 @@ const emit = defineEmits<{
       <div class="p-4 border-t border-slate-100 flex justify-end gap-3 bg-slate-50/50">
         <Button label="Batal" outlined class="border-slate-300! text-slate-600! px-5! bg-white!"
           @click="emit('update:visible', false)" />
-        <Button label="Ya, Setujui" class="bg-blue-600! border-blue-600! px-5!" @click="emit('confirm')" />
+        <Button label="Ya, Setujui" :loading="loading" :disabled="loading" class="bg-blue-600! border-blue-600! px-5!" @click="emit('confirm')" />
       </div>
     </div>
   </Dialog>

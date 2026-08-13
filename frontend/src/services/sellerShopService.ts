@@ -8,9 +8,12 @@ export const sellerShopService = {
     if (data.description !== undefined) {
       formData.append('description', data.description ?? '');
     }
+    if (data.phone !== undefined) formData.append('phone', data.phone ?? '');
+    if (data.address !== undefined) formData.append('address', data.address ?? '');
     if (data.logo) {
       formData.append('logo', data.logo);
     }
+    if (data.banner) formData.append('banner', data.banner);
 
     const response = await apiClient.post('/shops', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
@@ -29,14 +32,19 @@ export const sellerShopService = {
     if (data.name !== undefined) {
       formData.append('name', data.name);
     }
+    if (data.slug !== undefined) formData.append('slug', data.slug);
     if (data.description !== undefined) {
       formData.append('description', data.description ?? '');
     }
+    if (data.phone !== undefined) formData.append('phone', data.phone ?? '');
+    if (data.address !== undefined) formData.append('address', data.address ?? '');
     if (data.logo) {
       formData.append('logo', data.logo);
     }
+    if (data.banner) formData.append('banner', data.banner);
 
-    const response = await apiClient.put(`/shops/${shopId}`, formData, {
+    formData.append('_method', 'PUT');
+    const response = await apiClient.post(`/shops/${shopId}`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
 

@@ -24,11 +24,11 @@ export const useAuthStore = defineStore('auth', () => {
 
       // Redirect berdasarkan role
       if (user.value.role === 'seller') {
-        router.push('/seller/dashboard');
+        await router.push('/seller/dashboard');
       } else if (user.value.role === 'admin') {
-        router.push('/admin/dashboard');
+        await router.push('/admin/dashboard');
       } else {
-        router.push('/');
+        await router.push('/');
       }
     }
 
@@ -79,7 +79,7 @@ export const useAuthStore = defineStore('auth', () => {
     token.value = null;
     localStorage.removeItem('token');
     localStorage.removeItem('role');
-    router.push('/login');
+    await router.push('/login');
   }
 
   async function fetchUser() {
@@ -93,7 +93,12 @@ export const useAuthStore = defineStore('auth', () => {
       }
     } catch (error) {
       console.error('Failed to fetch user:', error);
-      await logout();
+      // Do not navigate from inside the session restore operation. The router
+      // guard owns navigation and will send the user to login exactly once.
+      user.value = null;
+      token.value = null;
+      localStorage.removeItem('token');
+      localStorage.removeItem('role');
     }
   }
 

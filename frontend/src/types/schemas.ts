@@ -61,11 +61,15 @@ export interface CheckoutRequest {
 export interface CreateCategoryRequest {
   name: string;
   slug?: string;
+  icon?: string | null;
+  description?: string | null;
 }
 
 export interface UpdateCategoryRequest {
   name?: string;
   slug?: string;
+  icon?: string | null;
+  description?: string | null;
 }
 
 // ─────────────────────────────────────────────────────
@@ -75,13 +79,20 @@ export interface UpdateCategoryRequest {
 export interface CreateShopRequest {
   name: string;
   description?: string | null;
+  phone?: string | null;
+  address?: string | null;
   logo?: File | null;
+  banner?: File | null;
 }
 
 export interface UpdateShopRequest {
   name?: string;
+  slug?: string;
   description?: string | null;
+  phone?: string | null;
+  address?: string | null;
   logo?: File | null;
+  banner?: File | null;
 }
 
 // ─────────────────────────────────────────────────────

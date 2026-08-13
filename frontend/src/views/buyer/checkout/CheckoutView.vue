@@ -3,6 +3,7 @@ import CODAddressModal from '@/components/cod/CODAddressModal.vue'
 import { buyerPaymentService } from '@/services/buyerPaymentService'
 import { checkoutService } from '@/services/checkoutService'
 import { locationService } from '@/services/locationService'
+import { useCartStore } from '@/stores/cart'
 import type { Cart, CodLocation } from '@/types'
 import Button from 'primevue/button'
 import Dialog from 'primevue/dialog'
@@ -12,7 +13,9 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
+const cartStore = useCartStore()
 const checkoutItems = ref<Cart[]>([])
+const shippingByItem = ref<Record<number, string>>({})
 
 const loadCheckoutItems = () => {
   const raw = localStorage.getItem('checkoutItems')
@@ -27,11 +30,15 @@ const flatItems = computed(() => {
       group.items.map((item) => ({
         ...item,
         shop: group.shop,
-        selectedShipping: 'reguler_15',
+        selectedShipping: shippingByItem.value[item.id] ?? 'reguler_15',
       }))
     )
   )
 })
+
+const setShipping = (itemId: number, value: string) => {
+  shippingByItem.value[itemId] = value
+}
 
 // --- STATE LOADING SIMULASI API GET ---
 const isLoadingPage = ref(true)
@@ -66,6 +73,7 @@ const activeAddress = computed(() => {
 const isAddressModalOpen = ref(false)
 const isAddNewFormOpen = ref(false)
 const showEditModal = ref(false)
+const addressModalMode = ref<'add' | 'edit'>('edit')
 
 const newAddress = ref<CodLocation>({
   name: "",
@@ -81,6 +89,19 @@ const selectAddress = (id: number) => {
   selectedAddressId.value = id
   selectedAddress.value = listAddress.value.find((addr) => addr.id === id) ?? null
   isAddressModalOpen.value = false
+}
+
+const openAddAddress = () => {
+  addressModalMode.value = 'add'
+  isAddressModalOpen.value = false
+  showEditModal.value = true
+}
+
+const openEditAddress = () => {
+  if (!selectedAddress.value) return openAddAddress()
+  addressModalMode.value = 'edit'
+  isAddressModalOpen.value = false
+  showEditModal.value = true
 }
 
 const saveNewAddress = async () => {
@@ -286,7 +307,9 @@ const handleCreateOrder = async () => {
 
   try {
     const payload: Parameters<typeof checkoutService.checkout>[0] = {
-      cart_items: flatItems.value.map((item) => item.product_id),
+      // Laravel checkout validates cart_items against cart_items.id,
+      // not products.id.
+      cart_items: flatItems.value.map((item) => item.id),
       shipping_method: shippingMethod.value,
       payment_method: selectedPaymentMethod.value,
       shipping_address: activeAddress.value.address ?? '',
@@ -294,6 +317,12 @@ const handleCreateOrder = async () => {
     }
 
     const order = await checkoutService.checkout(payload)
+
+    // The backend checkout consumes the selected cart items. Refresh the
+    // shared cart state so the header badge and /cart page are immediately
+    // consistent after a successful order.
+    await cartStore.loadCart()
+    localStorage.removeItem('checkoutItems')
 
     if (previewImage.value && order.id) {
       try {
@@ -349,14 +378,14 @@ onMounted(() => {
     <div v-else class="max-w-7xl mx-auto space-y-6">
 
       <!-- Top Bar Navigation -->
-      <div class="flex items-center justify-between text-xs text-slate-600">
+      <div class="flex items-center justify-between gap-3 text-xs text-slate-600">
         <router-link to="/cart" class="flex items-center gap-2 hover:text-blue-600 transition-colors font-medium">
           <i class="pi pi-arrow-left text-xs"></i>
           <span>Kembali</span>
         </router-link>
         <div class="flex items-center gap-1.5 text-slate-500 font-medium">
           <i class="pi pi-lock text-xs"></i>
-          <span>Checkout Keamanan SSL</span>
+          <span class="hidden sm:inline">Checkout Keamanan SSL</span>
         </div>
       </div>
 
@@ -367,13 +396,13 @@ onMounted(() => {
         <div class="lg:col-span-7 space-y-6">
 
           <!-- Section 1: Alamat Pengiriman -->
-          <div class="bg-white rounded p-6 shadow-sm border border-slate-100">
-            <div class="flex items-center justify-between pb-4 mb-4 border-b border-slate-100">
+          <div class="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm sm:p-6">
+            <div class="mb-4 flex items-center justify-between gap-3 border-b border-slate-100 pb-4">
               <div class="flex items-center gap-2 font-bold text-slate-800 text-sm">
                 <i class="pi pi-map-marker text-blue-600"></i>
                 <h2>Alamat Pengiriman</h2>
               </div>
-              <button @click="isAddressModalOpen = true" class="text-xs text-blue-600 font-semibold hover:underline">
+              <button @click="isAddressModalOpen = true" class="shrink-0 rounded-lg px-2 py-1 text-xs font-semibold text-blue-600 hover:bg-blue-50">
                 Ubah Alamat
               </button>
             </div>
@@ -387,7 +416,7 @@ onMounted(() => {
           </div>
 
           <!-- Section 2: Ringkasan Pesanan -->
-          <div class="bg-white rounded p-6 shadow-sm border border-slate-100 space-y-6">
+          <div class="space-y-5 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm sm:p-6">
             <div class="flex items-center gap-2 font-bold text-slate-800 text-sm pb-4 border-b border-slate-100">
               <i class="pi pi-shopping-bag text-blue-600"></i>
               <h2>Ringkasan Pesanan</h2>
@@ -396,29 +425,33 @@ onMounted(() => {
             <!-- List Toko & Barang -->
             <div v-for="(group, idx) in flatItems" :key="idx"
               class="space-y-4 pb-6 border-b border-slate-100 last:border-0 last:pb-0">
-              <div class="flex items-center gap-2 text-xs font-bold text-slate-700">
+              <div class="flex min-w-0 items-center gap-2 text-xs font-bold text-slate-700">
                 <i class="pi pi-shop text-slate-400"></i>
-                <span>{{ group.shop?.name }}</span>
+                <span class="truncate">{{ group.shop?.name }}</span>
               </div>
 
-              <div class="flex items-start gap-4">
-                <img :src="group.product?.images?.[0]?.url ?? '/placeholder.png'" :alt="group.product?.name"
-                  class="w-16 h-16 rounded object-cover border border-slate-100 shrink-0" />
+              <div class="flex min-w-0 items-start gap-3 sm:gap-4">
+                <div class="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-100 bg-slate-50 text-[10px] text-slate-400">
+                  <img v-if="group.product?.images?.[0]?.url" :src="group.product.images[0].url!" :alt="group.product?.name"
+                    class="h-full w-full object-cover" />
+                  <span v-else>Tanpa gambar</span>
+                </div>
                 <div class="flex-1 min-w-0">
                   <h3 class="text-xs font-bold text-slate-800 truncate">{{ group.product?.name }}</h3>
                   <p class="text-xs text-slate-500 mt-2">
                     {{ group.quantity }} x {{ formatCurrency(group.product?.price as number) }}
                   </p>
                 </div>
-                <div class="text-right font-bold text-xs text-slate-800">
+                <div class="shrink-0 text-right text-xs font-bold text-slate-800">
                   {{ formatCurrency(group.product?.price as number * group.quantity) }}
                 </div>
               </div>
 
-              <div class="bg-slate-50/80 rounded p-3 border border-slate-100 space-y-1.5">
+              <div class="min-w-0 space-y-1.5 rounded-xl border border-slate-100 bg-slate-50/80 p-3">
                 <label class="text-[11px] text-slate-500 block">Pilih Pengiriman</label>
-                <Select v-model="group.selectedShipping" :options="shippingOptions" optionLabel="label"
-                  optionValue="value" class="w-full text-xs! bg-white! rounded-lg!" />
+                <Select :modelValue="group.selectedShipping" :options="shippingOptions" optionLabel="label"
+                  optionValue="value" class="w-full min-w-0! text-xs! bg-white! rounded-lg!"
+                  @update:modelValue="setShipping(group.id, $event)" />
               </div>
             </div>
           </div>
@@ -429,7 +462,7 @@ onMounted(() => {
         <div class="lg:col-span-5 space-y-6">
 
           <!-- Card 1: Metode Pembayaran -->
-          <div class="bg-white rounded p-6 shadow-sm border border-slate-100 space-y-4">
+          <div class="space-y-4 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm sm:p-6">
             <div class="flex items-center gap-2 font-bold text-slate-800 text-sm">
               <i class="pi pi-credit-card text-blue-600"></i>
               <h2>Metode Pembayaran</h2>
@@ -444,7 +477,7 @@ onMounted(() => {
               <div class="space-y-1.5">
                 <label class="text-[11px] text-slate-500 block">Pilih Metode Pembayaran</label>
                 <Select v-model="selectedPaymentMethod" :options="paymentOptions" optionLabel="label" optionValue="value"
-                  class="w-full text-xs! bg-white! rounded-lg!" />
+                  class="w-full min-w-0! text-xs! bg-white! rounded-lg!" />
               </div>
 
               <p v-if="selectedPaymentMethod === 'transfer'" class="text-[11px] text-slate-600 leading-relaxed">
@@ -573,7 +606,39 @@ onMounted(() => {
 
     <!-- DIALOG / MODAL PILIH & UBAH ALAMAT -->
 
-    <CODAddressModal v-model:visible="showEditModal" mode="edit" :codLocation="selectedAddress"
+    <Dialog v-model:visible="isAddressModalOpen" modal header="Pilih Alamat Pengiriman"
+      :style="{ width: 'min(92vw, 560px)' }" class="rounded-2xl!">
+      <div class="space-y-3">
+        <p class="text-sm text-slate-500">Pilih alamat yang akan digunakan untuk pesanan ini.</p>
+        <div v-if="listAddress.length" class="max-h-72 space-y-2 overflow-y-auto pr-1">
+          <button v-for="address in listAddress" :key="address.id" type="button"
+            class="flex w-full items-start gap-3 rounded-xl border p-4 text-left transition"
+            :class="activeAddress?.id === address.id ? 'border-blue-500 bg-blue-50 ring-1 ring-blue-500' : 'border-slate-200 hover:border-blue-300 hover:bg-slate-50'"
+            @click="selectAddress(address.id!)">
+            <i class="pi pi-map-marker mt-0.5 text-blue-600"></i>
+            <span class="min-w-0 flex-1">
+              <span class="flex flex-wrap items-center gap-2 text-sm font-bold text-slate-800">
+                {{ address.name }}
+                <span v-if="address.is_default" class="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">Utama</span>
+              </span>
+              <span class="mt-1 block text-xs text-slate-500">{{ address.phone }}</span>
+              <span class="mt-1 block break-words text-xs leading-5 text-slate-600">{{ address.address }}</span>
+            </span>
+            <i v-if="activeAddress?.id === address.id" class="pi pi-check-circle text-blue-600"></i>
+          </button>
+        </div>
+        <div v-else class="rounded-xl bg-slate-50 p-5 text-center text-sm text-slate-500">
+          Belum ada alamat tersimpan.
+        </div>
+        <div class="flex flex-col-reverse gap-2 border-t border-slate-100 pt-4 sm:flex-row sm:justify-end">
+          <Button label="Tutup" severity="secondary" outlined @click="isAddressModalOpen = false" />
+          <Button v-if="selectedAddress" label="Edit alamat terpilih" icon="pi pi-pencil" outlined @click="openEditAddress" />
+          <Button label="Tambah alamat baru" icon="pi pi-plus" @click="openAddAddress" />
+        </div>
+      </div>
+    </Dialog>
+
+    <CODAddressModal v-model:visible="showEditModal" :mode="addressModalMode" :codLocation="addressModalMode === 'edit' ? selectedAddress : null"
       @saved="loadLocations" />
     <!-- POPUP MODAL SUKSES PESANAN (MOCKUP GAMBAR) -->
     <Dialog v-model:visible="isSuccessModalOpen" modal :closable="false" :style="{ width: '90%', maxWidth: '480px' }"

@@ -6,12 +6,13 @@ namespace App\Http\Requests\Category;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Auth;
+use App\Enums\UserRole;
 
 class UpdateCategoryRequest extends FormRequest
 {
   public function authorize(): bool
   {
-    return Auth::check() && Auth::user()->role === 'admin';
+    return Auth::check() && Auth::user()->role === UserRole::ADMIN;
   }
 
   public function rules(): array
@@ -22,6 +23,8 @@ class UpdateCategoryRequest extends FormRequest
     return [
       'name' => ['sometimes', 'string', 'max:255'],
       'slug' => ['sometimes', 'string', 'max:255', 'unique:categories,slug,' . $categoryId],
+      'icon' => ['sometimes', 'nullable', 'string', 'max:32'],
+      'description' => ['sometimes', 'nullable', 'string', 'max:1000'],
     ];
   }
 

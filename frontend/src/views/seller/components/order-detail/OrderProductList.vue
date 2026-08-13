@@ -27,7 +27,8 @@ const formatRupiah = (val: string | number) => {
       <div v-for="item in items" :key="item.id"
         class="grid grid-cols-12 items-center text-xs border-b border-gray-50 py-3 last:border-0">
         <div class="col-span-6 flex items-center gap-3">
-          <img :src="item.product?.images?.[0]?.url || 'https://via.placeholder.com/80'"
+          <div v-if="!item.product?.images?.[0]?.url" class="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-gray-100 bg-slate-50 text-slate-400"><i class="pi pi-box"></i></div>
+          <img v-else :src="item.product.images[0].url"
             class="w-12 h-12 rounded-lg border border-gray-100 object-cover" />
           <div>
             <h4 class="font-bold text-gray-800 line-clamp-1">{{ item.product?.name || 'Produk' }}</h4>

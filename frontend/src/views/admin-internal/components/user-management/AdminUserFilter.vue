@@ -1,12 +1,14 @@
 <script setup lang="ts">
-import Button from 'primevue/button';
+import Select from 'primevue/select';
 
 const props = defineProps<{
   activeTab: string
+  status: string
 }>()
 
 const emit = defineEmits<{
   (e: 'update:activeTab', tab: string): void
+  (e: 'update:status', status: string): void
 }>()
 
 const tabs = [
@@ -14,6 +16,13 @@ const tabs = [
   { label: 'Buyer', value: 'buyer' },
   { label: 'Seller', value: 'seller' },
   { label: 'Admin', value: 'admin' }
+]
+
+const statuses = [
+  { label: 'Semua status', value: '' },
+  { label: 'Aktif', value: 'active' },
+  { label: 'Nonaktif', value: 'inactive' },
+  { label: 'Ditangguhkan', value: 'suspended' },
 ]
 </script>
 
@@ -30,15 +39,10 @@ const tabs = [
       </button>
     </div>
 
-    <div class="flex items-center gap-3">
-      <Button outlined class="rounded-full! text-slate-600! border-slate-300! px-4! py-2! text-sm!">
-        <span class="mr-2">Status: Semua</span>
-        <i class="pi pi-angle-down text-xs"></i>
-      </Button>
-      <Button outlined class="rounded-full! text-slate-600! border-slate-300! px-4! py-2! text-sm!">
-        <span class="mr-2">Role: Semua</span>
-        <i class="pi pi-angle-down text-xs"></i>
-      </Button>
+    <div class="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+      <Select :model-value="props.status" :options="statuses" option-label="label" option-value="value"
+        class="w-full sm:w-44" aria-label="Filter status pengguna"
+        @update:model-value="emit('update:status', $event)" />
     </div>
   </div>
 </template>

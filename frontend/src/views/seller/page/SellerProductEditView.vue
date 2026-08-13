@@ -11,12 +11,15 @@ import Textarea from 'primevue/textarea'
 import { useToast } from 'primevue/usetoast'
 import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { categoryService } from '@/services/categoryService'
+import { sellerProductService } from '@/services/sellerProductService'
+import { getApiErrorMessage } from '@/services/apiError'
 
 const route = useRoute()
 const router = useRouter()
 const toast = useToast()
 
-const productId = route.params.id || '101'
+const productSlug = String(route.params.id || '')
 
 // State Full-screen Loading GET
 const isLoadingGet = ref(true)
@@ -25,7 +28,7 @@ const showDeleteDialog = ref(false)
 
 // Form State
 const form = ref({
-  id: Number(productId),
+  id: 0,
   name: '',
   category_id: null as number | null,
   price: null as number | null,
@@ -38,57 +41,54 @@ const form = ref({
   images: [] as string[]
 })
 
-const categories = [
-  { label: 'Home Decor', value: 3 },
-  { label: 'Makanan & Minuman', value: 1 },
-  { label: 'Fashion & Pakaian', value: 2 },
-  { label: 'Elektronik', value: 4 }
-]
+const categories = ref<{ label: string; value: number }[]>([])
+const imageIds = ref<number[]>([])
+const imageFiles = ref<File[]>([])
+const deleteImageIds = ref<number[]>([])
 
 // ----------------------------------------------------------------
 // 1. SIMULASI GET DATA EDIT PRODUK (Full Screen Circular Loader)
 // ----------------------------------------------------------------
-const fetchProductDetail = () => {
+const fetchProductDetail = async () => {
   isLoadingGet.value = true
-  setTimeout(() => {
-    form.value = {
-      id: Number(productId),
-      name: 'Handcrafted Woven Basket',
-      category_id: 3,
-      price: 125000,
-      cost_price: 75000,
-      stock: 42,
-      weight: 500,
-      description: 'Beautifully handcrafted woven basket, perfect for organizing your living space or adding a touch of natural charm to your home decor. Made from sustainably sourced materials, ensuring durability and style. Dimensions: 30cm x 30cm x 25cm.',
-      sku: 'HWB-2024-001',
-      status: 'active',
-      images: [
-        'https://images.unsplash.com/photo-1599490659213-e2b9527bd087?w=500',
-        'https://images.unsplash.com/photo-1541544741938-0af808871cc0?w=500',
-        'https://images.unsplash.com/photo-1617627143750-d86bc21e42bb?w=500'
-      ]
-    }
-    isLoadingGet.value = false
-  }, 1000)
+  try {
+    const [product, categoryResponse] = await Promise.all([sellerProductService.getDetail(productSlug), categoryService.list()])
+    form.value = { id: product.id, name: product.name, category_id: product.category_id, price: Number(product.price), cost_price: product.cost_price === null ? null : Number(product.cost_price), stock: product.stock, weight: product.weight, description: product.description || '', sku: '', status: product.status === 'approved' ? 'active' : 'inactive', images: product.images?.map((image) => image.url || '') || [] }
+    imageIds.value = product.images?.map((image) => image.id) || []
+    categories.value = categoryResponse.map((category) => ({ label: category.name, value: category.id }))
+  } catch (error) { toast.add({ severity: 'error', summary: 'Produk gagal dimuat', detail: getApiErrorMessage(error), life: 3500 }); router.push('/seller/produk') }
+  finally { isLoadingGet.value = false }
 }
 
-// Drag & Drop / Upload Image Mock Handler
 const handleImageUpload = (e: Event, index: number) => {
   const target = e.target as HTMLInputElement
   if (target.files && target.files[0]) {
     const file = target.files[0]
     form.value.images[index] = URL.createObjectURL(file)
+    imageFiles.value.push(file)
   }
 }
 
 const removeImage = (index: number) => {
+  if (imageIds.value[index]) deleteImageIds.value.push(imageIds.value[index])
   form.value.images.splice(index, 1)
+  imageIds.value.splice(index, 1)
 }
 
-const handleUpdate = () => {
+const handleUpdate = async () => {
   isSubmitting.value = true
-  setTimeout(() => {
-    isSubmitting.value = false
+  try {
+    const payload = new FormData()
+    payload.append('name', form.value.name)
+    payload.append('category_id', String(form.value.category_id))
+    payload.append('price', String(form.value.price))
+    payload.append('stock', String(form.value.stock))
+    payload.append('description', form.value.description)
+    if (form.value.cost_price !== null) payload.append('cost_price', String(form.value.cost_price))
+    if (form.value.weight !== null) payload.append('weight', String(form.value.weight))
+    imageFiles.value.forEach((file) => payload.append('images[]', file))
+    deleteImageIds.value.forEach((id) => payload.append('delete_images[]', String(id)))
+    await sellerProductService.update(productSlug, payload)
     toast.add({
       severity: 'success',
       summary: 'Berhasil',
@@ -96,18 +96,14 @@ const handleUpdate = () => {
       life: 3000
     })
     router.push('/seller/produk')
-  }, 1200)
+  } catch (error) { toast.add({ severity: 'error', summary: 'Gagal memperbarui', detail: getApiErrorMessage(error), life: 4000 }) }
+  finally { isSubmitting.value = false }
 }
 
-const confirmDelete = () => {
+const confirmDelete = async () => {
   showDeleteDialog.value = false
-  toast.add({
-    severity: 'error',
-    summary: 'Produk Dihapus',
-    detail: 'Produk telah berhasil dihapus dari toko Anda.',
-    life: 3000
-  })
-  router.push('/seller/produk')
+  try { await sellerProductService.remove(productSlug); toast.add({ severity: 'success', summary: 'Produk dihapus', detail: 'Produk berhasil dihapus.', life: 3000 }); router.push('/seller/produk') }
+  catch (error) { toast.add({ severity: 'error', summary: 'Gagal menghapus', detail: getApiErrorMessage(error), life: 4000 }) }
 }
 
 const goBack = () => {

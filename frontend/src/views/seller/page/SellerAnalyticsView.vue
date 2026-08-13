@@ -2,17 +2,22 @@
 import Button from 'primevue/button'
 import Chart from 'primevue/chart'
 import Dropdown from 'primevue/dropdown'
+import Message from 'primevue/message'
 import ProgressSpinner from 'primevue/progressspinner'
 import { useToast } from 'primevue/usetoast'
 import { onMounted, ref, watch } from 'vue'
 
 import type { SellerTopProduct } from '@/types/entities'
+import { getApiErrorMessage } from '@/services/apiError'
+import { sellerAnalyticsService } from '@/services/sellerAnalyticsService'
+import { formatRupiah } from '@/utils/format'
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
 const toast = useToast()
 
 const isLoadingGet = ref(true)
+const errorMessage = ref('')
 const selectedPeriod = ref('month')
 
 const periodOptions = [
@@ -22,18 +27,13 @@ const periodOptions = [
   { label: 'Periode: Tahun Ini', value: 'year' }
 ]
 
-// Mock Metrics Overview
 const overviewMetrics = ref({
-  totalRevenue: 'Rp 15.450.000',
-  revenueGrowth: '+12% dari bulan lalu',
-  totalOrders: '128 Order',
-  ordersGrowth: '+5% dari bulan lalu',
-  productsSold: '340 Unit',
-  conversionRate: '3.2%'
+  totalRevenue: 'Rp0', revenueGrowth: '', totalOrders: '0 Order', ordersGrowth: '',
+  productsSold: '0 Unit', conversionRate: '-'
 })
 
-// Mock Top 5 Products
 const topProducts = ref<SellerTopProduct[]>([])
+const salesRows = ref<Array<{ date: string; total_revenue: string; orders_count?: number }>>([])
 
 // PrimeVue Chart Configs
 const barChartData = ref()
@@ -44,22 +44,16 @@ const donutChartOptions = ref()
 // ----------------------------------------------------------------
 // 1. SETUP DATA & PRIMEVUE V4 CHART CONFIG
 // ----------------------------------------------------------------
-const initCharts = () => {
+const initCharts = (sales: Array<{ date: string; total_revenue: string }>) => {
   // Bar Chart Data (Grafik Penjualan 30 Hari Terakhir)
   barChartData.value = {
-    labels: ['1', '4', '7', '10', '13', '16', '19', '22', '25', '28', '30'],
+    labels: sales.map((row) => row.date),
     datasets: [
       {
         label: 'Pendapatan (Rp)',
         backgroundColor: '#3b82f6',
         borderRadius: 6,
-        data: [12, 19, 8, 22, 15, 28, 14, 31, 24, 38, 42]
-      },
-      {
-        label: 'Profit (Rp)',
-        backgroundColor: '#10b981',
-        borderRadius: 6,
-        data: [7, 11, 4, 14, 9, 18, 8, 20, 15, 25, 29]
+        data: sales.map((row) => Number(row.total_revenue))
       }
     ]
   }
@@ -84,16 +78,9 @@ const initCharts = () => {
     }
   }
 
-  // Donut Chart Data (Kategori Terlaris)
+  // Kategori belum tersedia pada endpoint seller; jangan tampilkan data rekaan.
   donutChartData.value = {
-    labels: ['Makanan & Minuman', 'Fashion', 'Elektronik', 'Lainnya'],
-    datasets: [
-      {
-        data: [40, 30, 20, 10],
-        backgroundColor: ['#2563eb', '#f59e0b', '#10b981', '#cbd5e1'],
-        borderWidth: 0
-      }
-    ]
+    labels: [], datasets: [{ data: [], backgroundColor: [], borderWidth: 0 }]
   }
 
   donutChartOptions.value = {
@@ -107,32 +94,42 @@ const initCharts = () => {
 }
 
 // ----------------------------------------------------------------
-// 2. SIMULASI GET DATA ANALYTICS (Full Screen Circular Loader)
-// ----------------------------------------------------------------
-const fetchAnalyticsData = () => {
+const fetchAnalyticsData = async () => {
   isLoadingGet.value = true
-  setTimeout(() => {
-    topProducts.value = [
-      { id: 1, name: 'Kopi Luwak Premium 200g', slug: 'kopi-luwak', total_qty_sold: 145, revenue: 'Rp 4.350.000', profit: 'Rp 1.450.000' },
-      { id: 2, name: 'Batik Tulis Pekalongan', slug: 'batik-tulis', total_qty_sold: 82, revenue: 'Rp 3.690.000', profit: 'Rp 1.100.000' },
-      { id: 3, name: 'Sambal Roa Manado Asli', slug: 'sambal-roa', total_qty_sold: 76, revenue: 'Rp 1.140.000', profit: 'Rp 380.000' }
-    ]
-
-    initCharts()
+  try {
+    const [overview, sales, products] = await Promise.all([
+      sellerAnalyticsService.getOverview(),
+      sellerAnalyticsService.getSales({ period: selectedPeriod.value === 'year' ? 'monthly' : 'daily' }),
+      sellerAnalyticsService.getTopProducts(),
+    ])
+    overviewMetrics.value = {
+      totalRevenue: formatRupiah(overview.total_revenue), revenueGrowth: `${overview.pending_orders_count} pesanan menunggu`,
+      totalOrders: `${overview.total_orders} Order`, ordersGrowth: 'Pesanan bulan berjalan',
+      productsSold: `${products.reduce((sum, item) => sum + item.total_sold, 0)} Unit`, conversionRate: `${overview.total_products} Produk aktif`,
+    }
+    topProducts.value = products
+    salesRows.value = sales
+    initCharts(sales)
+  } catch (error) {
+    errorMessage.value = getApiErrorMessage(error, 'Data analitik toko gagal dimuat.')
+  } finally {
     isLoadingGet.value = false
-  }, 1000)
+  }
 }
 
 // ----------------------------------------------------------------
 // 3. EXPORT LAPORAN & NAVIGASI
 // ----------------------------------------------------------------
 const handleExportReport = () => {
-  toast.add({
-    severity: 'success',
-    summary: 'Export Laporan',
-    detail: `Laporan analitik (${selectedPeriod.value}) berhasil diunduh (CSV).`,
-    life: 3000
-  })
+  const csv = [['Tanggal', 'Pendapatan', 'Jumlah Pesanan'], ...salesRows.value.map((row) => [row.date, row.total_revenue, String(row.orders_count ?? 0)])]
+    .map((row) => row.join(',')).join('\n')
+  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }))
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `laporan-penjualan-${selectedPeriod.value}.csv`
+  link.click()
+  URL.revokeObjectURL(url)
+  toast.add({ severity: 'success', summary: 'Export berhasil', detail: 'Laporan penjualan berhasil diunduh.', life: 3000 })
 }
 
 const goToTopProductsPage = () => {
@@ -159,6 +156,8 @@ onMounted(() => {
         </p>
       </div>
     </Transition>
+
+    <Message v-if="errorMessage" severity="error" class="mx-auto mb-4 max-w-6xl">{{ errorMessage }}</Message>
 
     <div v-if="!isLoadingGet" class="max-w-6xl mx-auto space-y-6 pb-12">
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -247,9 +246,6 @@ onMounted(() => {
               <span class="flex items-center gap-1.5 text-slate-600">
                 <span class="w-2.5 h-2.5 rounded-full bg-blue-500"></span> Pendapatan
               </span>
-              <span class="flex items-center gap-1.5 text-slate-600">
-                <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> Profit
-              </span>
             </div>
           </div>
 
@@ -262,29 +258,11 @@ onMounted(() => {
           class="lg:col-span-4 bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col justify-between">
           <div>
             <h2 class="text-base font-bold text-slate-900 mb-2">Kategori Terlaris</h2>
-            <div class="h-44 relative my-2 flex items-center justify-center">
-              <Chart type="doughnut" :data="donutChartData" :options="donutChartOptions" class="h-full" />
-              <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                <span class="text-xl font-bold text-slate-900">40%</span>
-                <span class="text-[10px] text-slate-400 font-medium">Makanan</span>
-              </div>
+            <div class="flex h-44 items-center justify-center text-center text-xs text-slate-400">
+              <div><i class="pi pi-chart-pie mb-2 text-2xl"></i><p>Data kategori belum tersedia.</p></div>
             </div>
           </div>
 
-          <div class="grid grid-cols-2 gap-2 text-xs pt-3 border-t border-slate-100">
-            <div class="flex items-center gap-1.5 text-slate-600">
-              <span class="w-2.5 h-2.5 rounded-full bg-blue-600"></span> Makanan (40%)
-            </div>
-            <div class="flex items-center gap-1.5 text-slate-600">
-              <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span> Fashion (30%)
-            </div>
-            <div class="flex items-center gap-1.5 text-slate-600">
-              <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> Elektronik (20%)
-            </div>
-            <div class="flex items-center gap-1.5 text-slate-600">
-              <span class="w-2.5 h-2.5 rounded-full bg-slate-300"></span> Lainnya (10%)
-            </div>
-          </div>
         </div>
       </div>
 
@@ -319,15 +297,15 @@ onMounted(() => {
                     </div>
                     <div>
                       <p class="text-xs font-bold text-slate-800">{{ item.name }}</p>
-                      <p class="text-[10px] text-slate-400">SKU: KLP-001</p>
+                      <p class="text-[10px] text-slate-400">SKU: {{ item.id }}</p>
                     </div>
                   </div>
                 </td>
-                <td class="py-4 px-4 text-slate-500">Makanan & Minuman</td>
-                <td class="py-4 px-4 text-center font-bold text-slate-800">{{ item.total_qty_sold }}</td>
-                <td class="py-4 px-4 font-bold text-blue-600">{{ item.revenue }}</td>
+                <td class="py-4 px-4 text-slate-500">{{ item.category?.name || '—' }}</td>
+                <td class="py-4 px-4 text-center font-bold text-slate-800">{{ item.total_sold }}</td>
+                <td class="py-4 px-4 font-bold text-blue-600">{{ formatRupiah(item.total_revenue) }}</td>
                 <td class="py-4 px-6 text-center">
-                  <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span>
+                  <span class="text-slate-500">{{ item.stock ?? '—' }}</span>
                 </td>
               </tr>
             </tbody>

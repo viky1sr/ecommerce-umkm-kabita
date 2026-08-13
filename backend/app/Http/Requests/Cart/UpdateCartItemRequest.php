@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Cart;
 
+use App\Models\CartItem;
 use Illuminate\Foundation\Http\FormRequest;
 
 class UpdateCartItemRequest extends FormRequest
@@ -29,7 +30,7 @@ class UpdateCartItemRequest extends FormRequest
         'integer',
         'min:1',
         function (string $attribute, mixed $value, callable $fail) {
-          $cartItem = $this->route('cartItem');
+          $cartItem = CartItem::with('product')->find($this->route('cartItem'));
 
           if ($cartItem && $value > $cartItem->product->stock) {
             $fail('Jumlah yang diminta melebihi stok yang tersedia.');

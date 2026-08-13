@@ -20,7 +20,10 @@ class CartControllerTest extends TestCase
 
   private function actingAsBuyer(): User
   {
-    return User::factory()->create(['role' => UserRole::BUYER]);
+    $buyer = User::factory()->create(['role' => UserRole::BUYER]);
+    Cart::factory()->create(['buyer_id' => $buyer->id]);
+
+    return $buyer;
   }
 
   /** @test */
@@ -28,7 +31,7 @@ class CartControllerTest extends TestCase
   {
     $buyer = $this->actingAsBuyer();
 
-    $response = $this->actingAs($buyer)->getJson('/api/cart');
+    $response = $this->actingAs($buyer)->getJson('/api/v1/cart');
 
     $response->assertStatus(200)
       ->assertJson([
@@ -71,7 +74,7 @@ class CartControllerTest extends TestCase
       'status' => ProductStatus::APPROVED,
     ]);
 
-    $response = $this->actingAs($buyer)->postJson('/api/cart/items', [
+    $response = $this->actingAs($buyer)->postJson('/api/v1/cart/items', [
       'product_id' => $product->id,
       'quantity' => 2,
     ]);
@@ -140,7 +143,7 @@ class CartControllerTest extends TestCase
       'quantity' => 1,
     ]);
 
-    $response = $this->actingAs($buyer)->putJson('/api/cart/items/' . $cartItem->id, [
+    $response = $this->actingAs($buyer)->putJson('/api/v1/cart/items/' . $cartItem->id, [
       'quantity' => 3,
     ]);
 
@@ -171,7 +174,7 @@ class CartControllerTest extends TestCase
       'quantity' => 1,
     ]);
 
-    $response = $this->actingAs($buyer)->deleteJson('/api/cart/items/' . $cartItem->id);
+    $response = $this->actingAs($buyer)->deleteJson('/api/v1/cart/items/' . $cartItem->id);
 
     $response->assertStatus(200)
       ->assertJson([
@@ -200,7 +203,7 @@ class CartControllerTest extends TestCase
       'quantity' => 2,
     ]);
 
-    $response = $this->actingAs($buyer)->deleteJson('/api/cart/clear');
+    $response = $this->actingAs($buyer)->deleteJson('/api/v1/cart/clear');
 
     $response->assertStatus(200)
       ->assertJson([
@@ -229,7 +232,7 @@ class CartControllerTest extends TestCase
       'quantity' => 2,
     ]);
 
-    $response = $this->actingAs($buyer)->getJson('/api/cart/validate');
+    $response = $this->actingAs($buyer)->getJson('/api/v1/cart/validate');
 
     $response->assertStatus(200)
       ->assertJson([

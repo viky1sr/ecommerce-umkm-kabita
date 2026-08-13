@@ -5,6 +5,7 @@ import { useRoute } from 'vue-router'
 import ProfileAccount from './ProfileAccount.vue'
 import ProfileAddress from './ProfileAddress.vue'
 import ProfileOrders from './ProfileOrders.vue'
+import { useAuthStore } from '@/stores/auth'
 
 const props = withDefaults(
   defineProps<{
@@ -16,6 +17,7 @@ const props = withDefaults(
 )
 
 const route = useRoute()
+const authStore = useAuthStore()
 
 // Data Menu Sidebar Dinamis
 const sidebarMenus = ref([
@@ -49,10 +51,11 @@ const activeComponent = computed(() => {
         <div class="bg-white rounded-2xl shadow-sm p-5 border border-slate-100">
           <!-- Profile Badge Ringkas -->
           <div class="flex items-center gap-3 pb-5 mb-4 border-b border-slate-100">
-            <img src="https://primefaces.org/cdn/primevue/images/avatar/amyelsner.png" alt="Avatar"
-              class="w-12 h-12 rounded-full object-cover" />
+            <div class="flex h-12 w-12 items-center justify-center rounded-full bg-blue-100 font-bold text-blue-700">
+              {{ (authStore.user?.name || 'User').slice(0, 2).toUpperCase() }}
+            </div>
             <div>
-              <h2 class="font-bold text-slate-800 text-sm">Admin Kabita</h2>
+              <h2 class="font-bold text-slate-800 text-sm">{{ authStore.user?.name || 'Akun Saya' }}</h2>
               <span class="text-xs text-emerald-600 flex items-center gap-1">
                 <i class="pi pi-check-circle text-xs"></i> Terverifikasi
               </span>
@@ -71,6 +74,7 @@ const activeComponent = computed(() => {
               <span>{{ menu.label }}</span>
             </router-link>
           </nav>
+          <Button label="Keluar" icon="pi pi-sign-out" severity="secondary" text class="mt-4 w-full justify-start! rounded-xl!" @click="authStore.logout" />
         </div>
       </aside>
 

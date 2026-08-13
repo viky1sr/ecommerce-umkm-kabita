@@ -1,235 +1,114 @@
 <script setup lang="ts">
-import type { OrderStatus } from '@/types'
+import { buyerOrderService } from '@/services/buyerOrderService'
+import { getApiErrorMessage } from '@/services/apiError'
+import type { Order, OrderStatus } from '@/types'
 import Button from 'primevue/button'
 import InputText from 'primevue/inputtext'
+import ProgressSpinner from 'primevue/progressspinner'
 import Tag from 'primevue/tag'
-import { ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 
-
-// Interface Relations
-export interface OrderItem {
-  id: number
-  order_id: number
-  product_id: number
-  product_name: string
-  product_image?: string
-  quantity: number
-  price: string
-}
-
-export interface Shop {
-  id: number
-  name: string
-  logo?: string
-}
-
-// Main Interface
-export interface Order {
-  id: number
-  order_number: string
-  buyer_id: number
-  shop_id: number
-  subtotal: string
-  shipping_cost: string
-  total_amount: string
-  shipping_method: string
-  payment_method: string
-  status: OrderStatus
-  shipping_address: string
-  tracking_number: string | null
-  notes: string | null
-  created_at: string
-  updated_at: string
-  shop?: Shop
-  items?: OrderItem[]
-}
-
+const router = useRouter()
+const orders = ref<Order[]>([])
 const searchQuery = ref('')
+const isLoading = ref(true)
+const errorMessage = ref('')
 
-// Mock data berdasarkan interface Order
-const orders = ref<Order[]>([
-  {
-    id: 1,
-    order_number: 'KBT-20260801-001',
-    buyer_id: 10,
-    shop_id: 5,
-    subtotal: '70000.00',
-    shipping_cost: '10000.00',
-    total_amount: '80000.00',
-    shipping_method: 'JNE Reguler',
-    payment_method: 'QRIS',
-    status: 'completed',
-    shipping_address: 'Jl. Pemuda No. 12, Jakarta',
-    tracking_number: 'JNE123456789',
-    notes: 'Tolong packing kayu',
-    created_at: '2026-08-01T10:00:00Z',
-    updated_at: '2026-08-01T15:00:00Z',
-    shop: {
-      id: 5,
-      name: 'Toko UMKM Binaan'
-    },
-    items: [
-      {
-        id: 101,
-        order_id: 1,
-        product_id: 201,
-        product_name: 'Keripik Tempe Renyah Khas Daerah 250g',
-        product_image: 'https://primefaces.org/cdn/primevue/images/galleria/galleria1.jpg',
-        quantity: 2,
-        price: '35000.00'
-      }
-    ]
-  },
-  {
-    id: 2,
-    order_number: 'KBT-20260728-004',
-    buyer_id: 10,
-    shop_id: 8,
-    subtotal: '85000.00',
-    shipping_cost: '15000.00',
-    total_amount: '100000.00',
-    shipping_method: 'SiCepat BEST',
-    payment_method: 'Transfer Bank (BCA)',
-    status: 'processing',
-    shipping_address: 'Jl. Pemuda No. 12, Jakarta',
-    tracking_number: null,
-    notes: null,
-    created_at: '2026-07-28T09:30:00Z',
-    updated_at: '2026-07-28T09:35:00Z',
-    shop: {
-      id: 8,
-      name: 'Kopi Kenangan UMKM'
-    },
-    items: [
-      {
-        id: 102,
-        order_id: 2,
-        product_id: 205,
-        product_name: 'Biji Kopi Arabika Robusta Blend 500g',
-        product_image: 'https://primefaces.org/cdn/primevue/images/galleria/galleria2.jpg',
-        quantity: 1,
-        price: '85000.00'
-      }
-    ]
-  }
-])
+const filteredOrders = computed(() => {
+  const query = searchQuery.value.trim().toLowerCase()
+  if (!query) return orders.value
+  return orders.value.filter((order) => [
+    order.order_number,
+    order.shop?.name,
+    order.status,
+  ].some((value) => String(value ?? '').toLowerCase().includes(query)))
+})
 
-// Helper Format Rupiah
-const formatCurrency = (amount: string | number) => {
-  const numericAmount = typeof amount === 'string' ? parseFloat(amount) : amount
-  return new Intl.NumberFormat('id-ID', {
-    style: 'currency',
-    currency: 'IDR',
-    maximumFractionDigits: 0
-  }).format(numericAmount)
-}
-
-// Helper Format Tanggal
-const formatDate = (dateString: string) => {
-  return new Date(dateString).toLocaleDateString('id-ID', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric'
-  })
-}
-
-// Helper Badge Severity
-const getSeverity = (status: OrderStatus) => {
-  switch (status) {
-    case 'completed':
-      return 'success'
-    case 'processing':
-    case 'shipped':
-      return 'warn'
-    case 'cancelled':
-      return 'danger'
-    default:
-      return 'info'
+const loadOrders = async () => {
+  isLoading.value = true
+  errorMessage.value = ''
+  try {
+    const response = await buyerOrderService.list({ sort: 'newest', per_page: 50 })
+    orders.value = response.data
+  } catch (error) {
+    errorMessage.value = getApiErrorMessage(error, 'Pesanan belum dapat dimuat.')
+  } finally {
+    isLoading.value = false
   }
 }
 
-// Helper Label Status
-const getStatusLabel = (status: OrderStatus) => {
-  const labels: Record<OrderStatus, string> = {
-    pending: 'Menunggu Pembayaran',
-    processing: 'Diproses',
-    shipped: 'Dikirim',
-    completed: 'Selesai',
-    cancelled: 'Dibatalkan',
-    delivered: "Telah Diterima"
-  }
-  return labels[status] || status
-}
+const formatCurrency = (amount: string | number) => new Intl.NumberFormat('id-ID', {
+  style: 'currency', currency: 'IDR', maximumFractionDigits: 0,
+}).format(Number(amount) || 0)
+
+const formatDate = (date: string) => new Date(date).toLocaleDateString('id-ID', {
+  day: 'numeric', month: 'long', year: 'numeric',
+})
+
+const getSeverity = (status: OrderStatus) => ({
+  pending: 'warn', processing: 'info', shipped: 'info', delivered: 'success',
+  completed: 'success', cancelled: 'danger',
+}[status] || 'secondary')
+
+const getStatusLabel = (status: OrderStatus) => ({
+  pending: 'Menunggu pembayaran', processing: 'Diproses', shipped: 'Dikirim',
+  delivered: 'Selesai', completed: 'Selesai', cancelled: 'Dibatalkan',
+}[status] || status)
+
+onMounted(loadOrders)
 </script>
 
 <template>
-  <div class="bg-white rounded-2xl shadow-sm p-6 lg:p-8 border border-slate-100">
-    <--! Header -->
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-6 mb-6 border-b border-slate-100 gap-4">
-        <div>
-          <h1 class="text-lg font-bold text-slate-800">Daftar Pesanan</h1>
-          <p class="text-xs text-slate-500 mt-1">Pantau status transaksi dan histori belanja Anda.</p>
-        </div>
-        <--! Search Input -->
-          <div class="relative w-full sm:w-64">
-            <i class="pi pi-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
-            <InputText v-model="searchQuery" placeholder="Cari No. Pesanan..."
-              class="w-full pl-8! py-2! text-xs! rounded-xl!" />
-          </div>
+  <section class="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm sm:p-6 lg:p-8">
+    <header class="flex flex-col gap-4 border-b border-slate-100 pb-5 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <h1 class="text-xl font-bold text-slate-900">Pesanan Saya</h1>
+        <p class="mt-1 text-sm text-slate-500">Pantau status pesanan dan riwayat belanja Anda.</p>
       </div>
+      <div class="relative w-full sm:w-72">
+        <i class="pi pi-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+        <InputText v-model="searchQuery" placeholder="Cari nomor pesanan atau toko..." class="w-full rounded-xl! py-2.5! pl-9! text-sm!" />
+      </div>
+    </header>
 
-      <--! Order List -->
-        <div class="space-y-4">
-          <div v-for="order in orders" :key="order.id"
-            class="border border-slate-100 rounded-xl p-4 hover:border-slate-200 transition-colors space-y-3">
-            <--! Card Top Bar -->
-              <div
-                class="flex flex-wrap items-center justify-between text-xs text-slate-500 gap-2 border-b border-slate-100 pb-3">
-                <div class="flex items-center gap-2">
-                  <span class="font-semibold text-slate-700">{{ order.shop?.name || 'Toko UMKM' }}</span>
-                  <span>•</span>
-                  <span>{{ formatDate(order.created_at) }}</span>
-                  <span>•</span>
-                  <span class="text-slate-400">{{ order.order_number }}</span>
-                </div>
-                <Tag :value="getStatusLabel(order.status)" :severity="getSeverity(order.status)"
-                  class="text-![10px] px-2!.5 py-0!.5" />
-              </div>
-
-              <--! Items -->
-                <div v-for="item in order.items" :key="item.id" class="flex items-center gap-4 py-1">
-                  <img :src="item.product_image || 'https://primefaces.org/cdn/primevue/images/galleria/galleria1.jpg'"
-                    alt="Product" class="w-16 h-16 rounded-lg object-cover border border-slate-100 shrink-0" />
-                  <div class="flex-1 min-w-0">
-                    <h3 class="text-xs font-semibold text-slate-800 truncate">{{ item.product_name }}</h3>
-                    <p class="text-[11px] text-slate-400 mt-0.5">{{ item.quantity }} barang x {{
-                      formatCurrency(item.price) }}
-                    </p>
-                  </div>
-                  <div class="text-right">
-                    <span class="text-xs font-bold text-slate-800">{{ formatCurrency(parseFloat(item.price) *
-                      item.quantity)
-                    }}</span>
-                  </div>
-                </div>
-
-                <--! Card Footer -->
-                  <div
-                    class="flex flex-col sm:flex-row sm:items-center justify-between pt-3 border-t border-slate-100 gap-3">
-                    <div class="text-xs">
-                      <span class="text-slate-500">Total Belanja: </span>
-                      <span class="font-bold text-slate-900">{{ formatCurrency(order.total_amount) }}</span>
-                      <span class="text-[10px] text-slate-400 block sm:inline sm:ml-2">(Ongkir: {{
-                        formatCurrency(order.shipping_cost) }})</span>
-                    </div>
-                    <div class="flex gap-2 justify-end">
-                      <Button label="Detail Pesanan" severity="secondary" outlined
-                        class="text-xs! px-3! py-1!.5 rounded-lg!" />
-                      <Button v-if="order.status === 'completed'" label="Beli Lagi"
-                        class="bg-blue-600! border-blue-600! text-xs! px-3! py-1!.5 rounded-lg!" />
-                    </div>
-                  </div>
+    <div v-if="isLoading" class="flex flex-col items-center justify-center gap-3 py-20 text-slate-500">
+      <ProgressSpinner style="width: 42px; height: 42px" />
+      <span class="text-sm">Memuat pesanan...</span>
+    </div>
+    <div v-else-if="errorMessage" class="py-16 text-center">
+      <p class="text-sm text-rose-600">{{ errorMessage }}</p>
+      <Button label="Coba lagi" icon="pi pi-refresh" outlined class="mt-4 rounded-xl!" @click="loadOrders" />
+    </div>
+    <div v-else-if="filteredOrders.length === 0" class="py-16 text-center">
+      <i class="pi pi-receipt text-4xl text-slate-300"></i>
+      <h2 class="mt-4 font-bold text-slate-800">Pesanan tidak ditemukan</h2>
+      <p class="mt-1 text-sm text-slate-500">Coba kata kunci lain atau mulai belanja produk UMKM.</p>
+      <Button label="Mulai belanja" icon="pi pi-shopping-bag" class="mt-5 rounded-xl!" @click="router.push('/produk')" />
+    </div>
+    <div v-else class="mt-5 space-y-4">
+      <article v-for="order in filteredOrders" :key="order.id" class="rounded-2xl border border-slate-100 p-4 transition hover:border-blue-200 hover:shadow-sm">
+        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3 text-xs">
+          <div class="flex flex-wrap items-center gap-2 text-slate-500">
+            <span class="font-bold text-slate-800">{{ order.shop?.name || 'Toko Kabita' }}</span>
+            <span>•</span><span>{{ formatDate(order.created_at) }}</span>
+            <span>•</span><span>{{ order.order_number }}</span>
           </div>
+          <Tag :value="getStatusLabel(order.status)" :severity="getSeverity(order.status)" />
         </div>
-  </div>
+        <div v-for="item in order.items" :key="item.id" class="flex min-w-0 items-center gap-3 py-4">
+          <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-slate-50 text-[10px] text-slate-400">Produk</div>
+          <div class="min-w-0 flex-1">
+            <h3 class="truncate text-sm font-semibold text-slate-800">{{ item.product?.name || 'Produk' }}</h3>
+            <p class="mt-1 text-xs text-slate-500">{{ item.quantity }} barang × {{ formatCurrency(item.price_snapshot) }}</p>
+          </div>
+          <span class="shrink-0 text-sm font-bold text-slate-800">{{ formatCurrency(Number(item.price_snapshot) * item.quantity) }}</span>
+        </div>
+        <footer class="flex flex-col gap-3 border-t border-slate-100 pt-3 sm:flex-row sm:items-center sm:justify-between">
+          <span class="text-sm text-slate-500">Total <strong class="text-slate-900">{{ formatCurrency(order.total_amount) }}</strong></span>
+          <Button label="Lihat detail" icon="pi pi-arrow-right" iconPos="right" text class="rounded-xl!" @click="router.push(`/order-detail?id=${order.id}`)" />
+        </footer>
+      </article>
+    </div>
+  </section>
 </template>

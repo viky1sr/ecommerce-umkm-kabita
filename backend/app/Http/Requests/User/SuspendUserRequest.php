@@ -6,12 +6,13 @@ namespace App\Http\Requests\User;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Auth;
+use App\Enums\UserRole;
 
 class SuspendUserRequest extends FormRequest
 {
   public function authorize(): bool
   {
-    return Auth::check() && Auth::user()->role === 'admin';
+    return Auth::check() && Auth::user()->role === UserRole::ADMIN;
   }
 
   public function rules(): array

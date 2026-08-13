@@ -44,7 +44,13 @@ class AnalyticsController extends Controller
     $totalProducts = Product::where('status', 'approved')->count();
 
     // Monthly transactions
-    $monthlyTransactions = Order::selectRaw('MONTH(created_at) as month, YEAR(created_at) as year, COUNT(*) as count, SUM(total_amount) as revenue')
+    $monthExpression = DB::connection()->getDriverName() === 'sqlite'
+      ? "CAST(strftime('%m', created_at) AS INTEGER)"
+      : 'MONTH(created_at)';
+    $yearExpression = DB::connection()->getDriverName() === 'sqlite'
+      ? "CAST(strftime('%Y', created_at) AS INTEGER)"
+      : 'YEAR(created_at)';
+    $monthlyTransactions = Order::selectRaw("{$monthExpression} as month, {$yearExpression} as year, COUNT(*) as count, SUM(total_amount) as revenue")
       ->whereYear('created_at', now()->year)
       ->groupBy('year', 'month')
       ->orderBy('year', 'asc')
@@ -52,8 +58,9 @@ class AnalyticsController extends Controller
       ->get();
 
     $monthlyData = $monthlyTransactions->map(fn($row) => [
-      'month' => $row->month,
-      'transactions' => (int) $row->count,
+            'month' => $row->month,
+            'year' => (int) $row->year,
+            'transactions' => (int) $row->count,
       'revenue' => number_format((float) $row->revenue, 2, '.', ''),
     ]);
 
@@ -91,10 +98,11 @@ class AnalyticsController extends Controller
 
     $period = $request->input('period', 'monthly');
 
+    $isSqlite = DB::connection()->getDriverName() === 'sqlite';
     $groupBy = match ($period) {
       'daily' => 'DATE(created_at)',
-      'weekly' => 'YEARWEEK(created_at, 1)',
-      default => 'DATE_FORMAT(created_at, "%Y-%m")',
+      'weekly' => $isSqlite ? "strftime('%Y-%W', created_at)" : 'YEARWEEK(created_at, 1)',
+      default => $isSqlite ? "strftime('%Y-%m', created_at)" : 'DATE_FORMAT(created_at, "%Y-%m")',
     };
 
     $rows = DB::table('orders')
@@ -167,6 +175,7 @@ class AnalyticsController extends Controller
 
     $products = DB::table('order_items')
       ->join('products', 'order_items.product_id', '=', 'products.id')
+      ->join('shops', 'products.shop_id', '=', 'shops.id')
       ->join('orders', 'order_items.order_id', '=', 'orders.id')
       ->where('orders.status', 'delivered')
       ->select(
@@ -174,10 +183,11 @@ class AnalyticsController extends Controller
         'products.name',
         'products.slug',
         'products.price',
+        'shops.name as shop_name',
         DB::raw('SUM(order_items.quantity) as total_qty_sold'),
         DB::raw('SUM(order_items.quantity * order_items.price_snapshot) as total_revenue')
       )
-      ->groupBy('products.id', 'products.name', 'products.slug', 'products.price')
+      ->groupBy('products.id', 'products.name', 'products.slug', 'products.price', 'shops.name')
       ->orderByDesc('total_qty_sold')
       ->limit($perPage)
       ->get();
@@ -187,6 +197,7 @@ class AnalyticsController extends Controller
       'name' => $p->name,
       'slug' => $p->slug,
       'price' => number_format((float) $p->price, 2, '.', ''),
+      'shop_name' => $p->shop_name,
       'total_qty_sold' => (int) $p->total_qty_sold,
       'total_revenue' => number_format((float) $p->total_revenue, 2, '.', ''),
     ]);
@@ -195,5 +206,26 @@ class AnalyticsController extends Controller
       'success' => true,
       'data' => $data,
     ]);
+  }
+
+  public function categoryRevenue(Request $request): JsonResponse
+  {
+    $rows = DB::table('order_items')
+      ->join('products', 'order_items.product_id', '=', 'products.id')
+      ->join('categories', 'products.category_id', '=', 'categories.id')
+      ->join('orders', 'order_items.order_id', '=', 'orders.id')
+      ->where('orders.status', 'delivered')
+      ->select('categories.id', 'categories.name', DB::raw('SUM(order_items.quantity * order_items.price_snapshot) as revenue'))
+      ->groupBy('categories.id', 'categories.name')
+      ->orderByDesc('revenue')
+      ->limit((int) $request->input('per_page', 10))
+      ->get()
+      ->map(fn ($row) => [
+        'id' => $row->id,
+        'name' => $row->name,
+        'revenue' => number_format((float) $row->revenue, 2, '.', ''),
+      ]);
+
+    return response()->json(['success' => true, 'data' => $rows]);
   }
 }

@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import ProgressSpinner from 'primevue/progressspinner'
 import { computed, onMounted, ref } from 'vue'
+import { adminOrderService } from '@/services/adminOrderService'
+import { getApiErrorMessage } from '@/services/apiError'
+import { useToast } from 'primevue/usetoast'
 
 import type { Order } from '@/types/entities'
 import AdminOrderDetailModal from '../components/order/AdminOrderDetailModal.vue'
@@ -12,66 +15,14 @@ const isLoading = ref(true)
 const activeTab = ref('all')
 const selectedOrder = ref<Partial<Order> | null>(null)
 const showDetailModal = ref(false)
+const toast = useToast()
 
-// Mock Data Orders
-const mockOrders = ref<Partial<Order>[]>([
-  {
-    id: 9001,
-    order_number: '#ORD-2026-001',
-    total_amount: '385000',
-    shipping_cost: '35000',
-    status: 'delivered',
-    payment_method: 'transfer',
-    shipping_method: 'kurir',
-    shipping_address: 'Jl. Pemuda No. 88, Kel. Rawamangun, Kec. Pulo Gadung, Jakarta Timur, 13220',
-    created_at: '2026-08-08T10:30:00Z',
-    buyer: { name: 'Rian Pratama', email: 'rian.pratama@gmail.com', phone: '+62 812 9900 1122' } as any,
-    shop: { name: 'Kopi Kenangan Asli', logo: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=100', seller: { name: 'Budi Santoso' } } as any,
-    items: [
-      // 👇 Menggunakan price_snapshot
-      { id: 1, order_id: 9001, product_id: 1, quantity: 2, price_snapshot: '175000', cost_snapshot: '175000', created_at: '2026-08-08T10:30:00Z', updated_at: '2026-08-08T10:30:00Z', product: { name: 'Kopi Arabika Toraja 500g', images: [{ image_url: 'https://images.unsplash.com/photo-1559056199-641a0ac8b55e?w=100' }] } as any }
-    ]
-  },
-  {
-    id: 9002,
-    order_number: '#ORD-2026-002',
-    total_amount: '1250000',
-    shipping_cost: '50000',
-    status: 'processing',
-    payment_method: 'cod',
-    shipping_method: 'cod',
-    shipping_address: 'Komplek Ruko Sentra Niaga B-12, Garut, Jawa Barat',
-    created_at: '2026-08-09T08:15:00Z',
-    buyer: { name: 'Dewi Lestari', email: 'dewi.lestari@gmail.com', phone: '+62 856 4433 2211' } as any,
-    shop: { name: 'Dapur Snack Nusantara', logo: 'https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=100', seller: { name: 'Siti Aminah' } } as any,
-    items: [
-      // 👇 Menggunakan price_snapshot
-      { id: 2, order_id: 9002, product_id: 2, quantity: 1, price_snapshot: '1200000', cost_snapshot: '1200000', created_at: '2026-08-09T08:15:00Z', updated_at: '2026-08-09T08:15:00Z', product: { name: 'Kain Batik Tulis Garut Premium', images: [{ image_url: 'https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=100' }] } as any }
-    ]
-  },
-  {
-    id: 9003,
-    order_number: '#ORD-2026-003',
-    total_amount: '750000',
-    shipping_cost: '25000',
-    status: 'pending',
-    payment_method: 'transfer',
-    shipping_method: 'kurir',
-    shipping_address: 'Jl. Slamet Riyadi No. 45, Solo, Jawa Tengah',
-    created_at: '2026-08-09T14:20:00Z',
-    buyer: { name: 'Agus Wijaya', email: 'agus.wijaya@gmail.com', phone: '+62 811 5566 7788' } as any,
-    shop: { name: 'Batik Solo Keraton', logo: 'https://images.unsplash.com/photo-1441984904996-e0b6ba687e04?w=100', seller: { name: 'Agus' } } as any,
-    items: [
-      // 👇 Menggunakan price_snapshot
-      { id: 3, order_id: 9003, product_id: 3, quantity: 1, price_snapshot: '725000', cost_snapshot: '725000', created_at: '2026-08-09T14:20:00Z', updated_at: '2026-08-09T14:20:00Z', product: { name: 'Set Dress Batik Solo Modern', images: [{ image_url: 'https://images.unsplash.com/photo-1441984904996-e0b6ba687e04?w=100' }] } as any }
-    ]
-  }
-])
+const orders = ref<Partial<Order>[]>([])
 
 // Computed Counts per Status
 const statusCounts = computed(() => {
-  const counts: Record<string, number> = { all: mockOrders.value.length }
-  mockOrders.value.forEach((o) => {
+  const counts: Record<string, number> = { all: orders.value.length }
+  orders.value.forEach((o) => {
     if (o.status) {
       counts[o.status] = (counts[o.status] || 0) + 1
     }
@@ -81,8 +32,8 @@ const statusCounts = computed(() => {
 
 // Filtered Orders
 const filteredOrders = computed(() => {
-  if (activeTab.value === 'all') return mockOrders.value
-  return mockOrders.value.filter((o) => o.status === activeTab.value)
+  if (activeTab.value === 'all') return orders.value
+  return orders.value.filter((o) => o.status === activeTab.value)
 })
 
 // Handlers
@@ -91,11 +42,10 @@ const openDetail = (order: Partial<Order>) => {
   showDetailModal.value = true
 }
 
-onMounted(() => {
-  // Simulasi GET API dengan Fullscreen Circular Loader
-  setTimeout(() => {
-    isLoading.value = false
-  }, 1000)
+onMounted(async () => {
+  try { orders.value = (await adminOrderService.list({ per_page: 100 })).data }
+  catch (error) { toast.add({ severity: 'error', summary: 'Gagal memuat pesanan', detail: getApiErrorMessage(error), life: 3500 }) }
+  finally { isLoading.value = false }
 })
 </script>
 

@@ -40,10 +40,11 @@ class ProductController extends Controller
       'max_price' => $request->input('max_price'),
       'sort' => $request->input('sort', 'newest'),
       'per_page' => $request->input('per_page', 12),
+      'page' => $request->input('page', 1),
     ]));
 
     $products = Cache::remember($cacheKey, 300, function () use ($request) {
-      $query = Product::where('status', 'active')
+      $query = Product::where('status', 'approved')
         ->with(['shop', 'category', 'images']);
 
       // Search by name
@@ -105,7 +106,7 @@ class ProductController extends Controller
   {
     $product = Cache::remember("public_product_{$slug}", 300, function () use ($slug) {
       return Product::where('slug', $slug)
-        ->where('status', 'active')
+        ->where('status', 'approved')
         ->with(['shop', 'category', 'images'])
         ->first();
     });

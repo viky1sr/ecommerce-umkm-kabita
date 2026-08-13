@@ -24,6 +24,13 @@ class PaymentResource extends JsonResource
       'proof_image' => $this->proof_image ? asset('storage/' . $this->proof_image) : null,
       'created_at' => $this->created_at,
       'updated_at' => $this->updated_at,
+      'order' => $this->whenLoaded('order', function () {
+        return [
+          'order_number' => $this->order->order_number,
+          'buyer' => $this->order->relationLoaded('buyer') ? new UserResource($this->order->buyer) : null,
+          'shop' => $this->order->relationLoaded('shop') ? new ShopResource($this->order->shop) : null,
+        ];
+      }),
     ];
   }
 }

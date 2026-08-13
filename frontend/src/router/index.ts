@@ -40,6 +40,18 @@ const routes: RouteRecordRaw[] = [
     meta: { guest: true, title: 'Detail Produk - Kabita' }
   },
   {
+    path: '/tentang-kami',
+    name: 'about',
+    component: () => import('../views/BuyerInfoView.vue'),
+    meta: { guest: true, title: 'Tentang Kabita' },
+  },
+  {
+    path: '/bantuan',
+    name: 'help',
+    component: () => import('../views/BuyerInfoView.vue'),
+    meta: { guest: true, title: 'Pusat Bantuan' },
+  },
+  {
     path: '/kategori/:slug',
     name: 'category',
     component: () => import('../views/CategoryView.vue'),
@@ -67,8 +79,8 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/order-detail',
     name: 'order-detail',
-    component: () => import('../views/buyer/order-detail/OrderDetailView.vue'),
-    meta: { guest: true }
+    component: () => import('../views/buyer/order-detail/BuyerOrderDetailView.vue'),
+    meta: { requiresAuth: true, title: 'Detail Pesanan - Kabita' }
   },
 
   // ==========================================
@@ -134,6 +146,7 @@ const routes: RouteRecordRaw[] = [
       },
       {
         path: 'pesanan',
+        alias: 'orders',
         name: 'seller-order-list',
         component: () => import('../views/seller/page/SellerOrderListView.vue'),
         meta: {
@@ -145,6 +158,7 @@ const routes: RouteRecordRaw[] = [
       },
       {
         path: 'pesanan/:id',
+        alias: 'orders/:id',
         name: 'seller-order-detail',
         component: () => import('../views/seller/page/SellerOrderDetailView.vue'),
         props: true,
@@ -256,6 +270,42 @@ const routes: RouteRecordRaw[] = [
           title: 'Kelola Kategori - Admin Center'
         }
       },
+      {
+        path: 'toko',
+        name: 'admin-store-verification',
+        component: () => import('../views/admin-internal/page/AdminStoreVerificationView.vue'),
+        meta: { requiresAuth: true, role: 'admin', hideHeaderFooter: true, title: 'Verifikasi Toko - Admin Center' }
+      },
+      {
+        path: 'user',
+        name: 'admin-user-management',
+        component: () => import('../views/admin-internal/page/AdminUserManagementView.vue'),
+        meta: { requiresAuth: true, role: 'admin', hideHeaderFooter: true, title: 'Kelola User - Admin Center' }
+      },
+      {
+        path: 'verifikasi',
+        name: 'admin-product-verification',
+        component: () => import('../views/admin-internal/page/AdminProductVerificationView.vue'),
+        meta: { requiresAuth: true, role: 'admin', hideHeaderFooter: true, title: 'Verifikasi Produk - Admin Center' }
+      },
+      {
+        path: 'transaksi',
+        name: 'admin-order-management',
+        component: () => import('../views/admin-internal/page/AdminOrderManagementView.vue'),
+        meta: { requiresAuth: true, role: 'admin', hideHeaderFooter: true, title: 'Transaksi - Admin Center' }
+      },
+      {
+        path: 'analitik',
+        name: 'admin-analytics',
+        component: () => import('../views/admin-internal/page/AdminAnalyticsView.vue'),
+        meta: { requiresAuth: true, role: 'admin', hideHeaderFooter: true, title: 'Analitik Platform - Admin Center' }
+      },
+      {
+        path: 'pengaturan',
+        name: 'admin-settings',
+        component: () => import('../views/admin-internal/page/AdminSettingsSystemSettingsView.vue'),
+        meta: { requiresAuth: true, role: 'admin', hideHeaderFooter: true, title: 'Pengaturan - Admin Center' }
+      },
 
       // Dynamic Slug Fallback untuk Sub-Menu Admin
       {
@@ -293,10 +343,17 @@ const router = createRouter({
 })
 
 // Navigation Guard dengan Hak Akses Admin, Seller, & Guest
-router.beforeEach((to, from, next) => {
+router.beforeEach(async (to) => {
   const authStore = useAuthStore();
+
+  // Restore the user before checking role-protected dashboard routes. A token
+  // alone is not enough after a browser refresh because Pinia state is rebuilt.
+  if (authStore.token && !authStore.user) {
+    await authStore.fetchUser();
+  }
+
   const token = authStore.token;
-  const userRole = authStore.userRole || 'buyer';
+  const userRole = authStore.userRole || localStorage.getItem('role') || 'buyer';
 
   // Dynamic Document Title
   if (to.meta.title) {
@@ -307,17 +364,23 @@ router.beforeEach((to, from, next) => {
 
   // Verification & Access Guard
   if (to.meta.requiresAuth && !token) {
-    next('/login')
+    return '/login'
   } else if (to.meta.role && to.meta.role !== userRole && token) {
     // Redirect pengguna jika mencoba mengakses halaman di luar kewenangannya (e.g. buyer -> admin)
-    if (userRole === 'admin') next('/admin/dashboard')
-    else if (userRole === 'seller') next('/seller/dashboard')
-    else next('/')
-  } else if (to.meta.guest && token && to.name !== 'not-found') {
-    next('/')
-  } else {
-    next()
+    if (userRole === 'admin') return '/admin/dashboard'
+    if (userRole === 'seller') return '/seller/dashboard'
+    return '/'
+  } else if (
+    to.meta.guest &&
+    token &&
+    ['login', 'register', 'verify-email'].includes(String(to.name))
+  ) {
+    // Only authentication pages should redirect an already signed-in user.
+    // Public catalog pages remain accessible after login.
+    return '/'
   }
+
+  return true
 })
 
 export default router;

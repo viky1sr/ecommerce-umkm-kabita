@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Enums\ProductStatus;
 use App\Http\Requests\Product\RejectProductRequest;
 use App\Http\Resources\ProductResource;
 use App\Models\Product;
@@ -78,7 +79,7 @@ class ProductController extends Controller
    */
   public function approve(Product $product): JsonResponse
   {
-    if ($product->status !== 'pending') {
+    if ($product->status !== ProductStatus::PENDING) {
       return response()->json([
         'success' => false,
         'message' => 'Produk tidak dalam status pending.',
@@ -86,7 +87,7 @@ class ProductController extends Controller
     }
 
     $product->update([
-      'status' => 'approved',
+      'status' => ProductStatus::APPROVED,
       'verified_at' => now(),
     ]);
 
@@ -112,7 +113,7 @@ class ProductController extends Controller
    */
   public function reject(Product $product, RejectProductRequest $request): JsonResponse
   {
-    if ($product->status !== 'pending') {
+    if ($product->status !== ProductStatus::PENDING) {
       return response()->json([
         'success' => false,
         'message' => 'Produk tidak dalam status pending.',
@@ -120,7 +121,7 @@ class ProductController extends Controller
     }
 
     $product->update([
-      'status' => 'rejected',
+      'status' => ProductStatus::REJECTED,
       'rejection_reason' => $request->validated('rejection_reason'),
     ]);
 

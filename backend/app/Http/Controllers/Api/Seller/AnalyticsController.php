@@ -95,9 +95,10 @@ class AnalyticsController extends Controller
     $startDate   = $request->input('start_date', now()->startOfMonth());
     $endDate     = $request->input('end_date', now()->endOfMonth());
 
+    $isSqlite = DB::connection()->getDriverName() === 'sqlite';
     $groupBy = match ($period) {
-      'weekly'  => 'YEARWEEK(created_at, 1)',
-      'monthly' => 'DATE_FORMAT(created_at, "%Y-%m")',
+      'weekly'  => $isSqlite ? "strftime('%Y-%W', created_at)" : 'YEARWEEK(created_at, 1)',
+      'monthly' => $isSqlite ? "strftime('%Y-%m', created_at)" : 'DATE_FORMAT(created_at, "%Y-%m")',
       default   => 'DATE(created_at)',
     };
 

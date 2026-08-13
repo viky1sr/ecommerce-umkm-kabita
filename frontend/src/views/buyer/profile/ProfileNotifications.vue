@@ -56,7 +56,7 @@ const getIcon = (type: Notification['type']) => {
 
 <template>
   <div class="bg-white rounded-2xl shadow-sm p-6 lg:p-8 border border-slate-100">
-    <--! Header -->
+    <!-- Header -->
       <div class="flex items-center justify-between pb-6 mb-6 border-b border-slate-100">
         <div>
           <h1 class="text-lg font-bold text-slate-800">Notifikasi</h1>
@@ -66,18 +66,18 @@ const getIcon = (type: Notification['type']) => {
           @click="markAllAsRead" />
       </div>
 
-      <--! Notification List -->
+      <!-- Notification List -->
         <div class="divide-y divide-slate-100">
           <div v-for="notif in notifications" :key="notif.id" :class="[
             'py-4 px-3 flex items-start gap-4 rounded-xl transition-colors',
             notif!.isRead ? 'bg-slate-50/80' : 'hover:bg-slate-50/40'
           ]">
-            <--! Icon -->
+            <!-- Icon -->
               <div
                 :class="['w-10 h-10 rounded-full flex items-center justify-center shrink-0 text-base', getIcon(notif.type)]">
               </div>
 
-              <--! Content -->
+              <!-- Content -->
                 <div class="flex-1 min-w-0">
                   <div class="flex items-center justify-between gap-2">
                     <h3 class="text-xs font-bold text-slate-800">{{ notif.title }}</h3>
@@ -86,7 +86,7 @@ const getIcon = (type: Notification['type']) => {
                   <p class="text-xs text-slate-600 mt-1 leading-relaxed">{{ notif.message }}</p>
                 </div>
 
-                <--! Unread Indicator Dot -->
+                <!-- Unread Indicator Dot -->
                   <div v-if="notif!.isRead" class="w-2 h-2 rounded-full bg-blue-600 mt-1 shrink-0"></div>
           </div>
         </div>

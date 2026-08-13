@@ -29,7 +29,8 @@ class CartResource extends JsonResource
       'buyer_id' => $this->buyer_id,
       'groups_by_shop' => $groups,
       'subtotal' => $this->whenLoaded('items', fn() => $service->calculateSubtotal($cart)),
-      'total' => $this->whenLoaded('items', fn() => $service->calculateTotal($cart)),
+      // Cart totals exclude shipping; shipping is selected during checkout.
+      'total' => $this->whenLoaded('items', fn() => $service->calculateSubtotal($cart)),
       'total_items' => $this->whenLoaded('items', fn() => $this->items->sum('quantity')),
       'stock_status' => $this->when(true, fn() => $service->checkStockAvailability($cart)),
       'created_at' => $this->created_at?->toDateTimeString(),

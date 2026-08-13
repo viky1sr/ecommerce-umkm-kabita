@@ -192,7 +192,7 @@ const timelineSteps = computed(() => {
   <div class="min-h-screen bg-slate-50 py-6 px-4 sm:px-6 lg:px-8">
     <div class="max-w-7xl mx-auto space-y-6">
 
-      <--! Top Bar Navigation -->
+      <!-- Top Bar Navigation -->
         <div class="flex items-center justify-between text-xs text-slate-600">
           <router-link to="/profile/orders"
             class="flex items-center gap-2 hover:text-blue-600 transition-colors font-medium">
@@ -205,7 +205,7 @@ const timelineSteps = computed(() => {
           </div>
         </div>
 
-        <--! Section Header Detail Pesanan -->
+        <!-- Section Header Detail Pesanan -->
           <div class="space-y-1">
             <h1 class="text-xl font-bold text-slate-800">Detail Pesanan</h1>
             <p class="text-xs text-slate-500">
@@ -214,22 +214,22 @@ const timelineSteps = computed(() => {
             </p>
           </div>
 
-          <--! Main Layout Grid -->
+          <!-- Main Layout Grid -->
             <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
 
-              <--! KOLOM KIRI (Detail Status, Lokasi & Rincian Produk) -->
+              <!-- KOLOM KIRI (Detail Status, Lokasi & Rincian Produk) -->
                 <div class="lg:col-span-8 space-y-6">
 
-                  <--! Section 1: Timeline Status Pesanan -->
+                  <!-- Section 1: Timeline Status Pesanan -->
                     <div class="bg-white rounded p-6 shadow-sm border border-slate-100 space-y-6">
                       <h2 class="font-bold text-slate-800 text-sm border-b border-slate-100 pb-4">Status Pesanan</h2>
 
-                      <--! Timeline Vertical -->
+                      <!-- Timeline Vertical -->
                         <div
                           class="relative pl-6 space-y-8 before:absolute before:left-2.5 before:top-3 before:bottom-3 before:w-0.5 before:bg-slate-200">
                           <div v-for="(step, idx) in timelineSteps" :key="step.key"
                             class="relative flex items-start gap-4">
-                            <--! Indicator Circle Icon -->
+                            <!-- Indicator Circle Icon -->
                               <div :class="[
                                 'absolute -left-6 top-0.5 w-5 h-5 rounded-full flex items-center justify-center text-[10px] ring-4 ring-white z-10 transition-colors',
                                 step.isDone
@@ -241,7 +241,7 @@ const timelineSteps = computed(() => {
                                 <i v-else class="pi pi-circle-fill text-[6px]"></i>
                               </div>
 
-                              <--! Text Status -->
+                              <!-- Text Status -->
                                 <div class="space-y-0.5">
                                   <h3 :class="['text-xs font-bold', step.isDone ? 'text-slate-800' : 'text-slate-400']">
                                     {{ step.title }}
@@ -255,7 +255,7 @@ const timelineSteps = computed(() => {
                         </div>
                     </div>
 
-                    <--! Section 2: Detail Ketemuan (COD) atau Alamat Pengiriman (Kurir) -->
+                    <!-- Section 2: Detail Ketemuan (COD) atau Alamat Pengiriman (Kurir) -->
                       <div class="bg-white rounded p-6 shadow-sm border border-slate-100 space-y-4">
                         <div
                           class="flex items-center gap-2 font-bold text-slate-800 text-sm border-b border-slate-100 pb-4">
@@ -263,7 +263,7 @@ const timelineSteps = computed(() => {
                           <h2>{{ isCod ? 'Detail Ketemuan (COD)' : 'Detail Pengiriman' }}</h2>
                         </div>
 
-                        <--! Grid Meta Informasi -->
+                        <!-- Grid Meta Informasi -->
                           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
                             <div>
                               <span class="text-slate-400 block mb-0.5">Metode</span>
@@ -276,7 +276,7 @@ const timelineSteps = computed(() => {
                             </div>
                           </div>
 
-                          <--! Info Lokasi -->
+                          <!-- Info Lokasi -->
                             <div class="space-y-1 text-xs pt-2">
                               <span class="text-slate-400 block">{{ isCod ? 'Lokasi Ketemuan' : 'Alamat Pengiriman'
                               }}</span>
@@ -285,11 +285,11 @@ const timelineSteps = computed(() => {
                               <p class="text-slate-600 leading-relaxed">{{ order.shipping_address }}</p>
                             </div>
 
-                            <--! Map Visual Mockup (Hanya untuk COD) -->
+                            <!-- Map Visual Mockup (Hanya untuk COD) -->
                               <div v-if="isCod" class="pt-2">
                                 <div
                                   class="w-full h-40 bg-slate-100 rounded border border-slate-200 overflow-hidden relative flex items-center justify-center">
-                                  <--! Image Mockup Map -->
+                                  <!-- Image Mockup Map -->
                                     <div
                                       class="absolute inset-0 bg-slate-200 opacity-60 bg-[radial-gradient(#linear-gradient,#000_1px,transparent_1px)] bg-size-[16px_16px]">
                                     </div>
@@ -303,7 +303,7 @@ const timelineSteps = computed(() => {
                               </div>
                       </div>
 
-                      <--! Section 3: Rincian Produk -->
+                      <!-- Section 3: Rincian Produk -->
                         <div class="bg-white rounded p-6 shadow-sm border border-slate-100 space-y-4">
                           <div
                             class="flex items-center gap-2 font-bold text-slate-800 text-sm border-b border-slate-100 pb-4">
@@ -311,7 +311,7 @@ const timelineSteps = computed(() => {
                             <h2>Rincian Produk</h2>
                           </div>
 
-                          <--! List Item Barang -->
+                          <!-- List Item Barang -->
                             <div class="divide-y divide-slate-100">
                               <div v-for="item in order.items" :key="item.id"
                                 class="py-4 first:pt-0 last:pb-0 flex items-center gap-4">
@@ -337,10 +337,10 @@ const timelineSteps = computed(() => {
 
                 </div>
 
-                <--! KOLOM KANAN (Ringkasan Belanja, Aksinya, & Info Toko) -->
+                <!-- KOLOM KANAN (Ringkasan Belanja, Aksinya, & Info Toko) -->
                   <div class="lg:col-span-4 space-y-6">
 
-                    <--! Card 1: Ringkasan Belanja -->
+                    <!-- Card 1: Ringkasan Belanja -->
                       <div class="bg-white rounded p-6 shadow-sm border border-slate-100 space-y-4">
                         <h2 class="font-bold text-slate-800 text-sm">Ringkasan Belanja</h2>
 
@@ -359,21 +359,21 @@ const timelineSteps = computed(() => {
                           </div>
                         </div>
 
-                        <--! Total Tagihan -->
+                        <!-- Total Tagihan -->
                           <div class="flex items-center justify-between pt-1">
                             <span class="text-xs font-bold text-slate-800">Total Tagihan</span>
                             <span class="text-lg font-bold text-blue-600">{{ formatCurrency(order.total_amount)
                             }}</span>
                           </div>
 
-                          <--! Alert Cash Notice (Khusus COD) -->
+                          <!-- Alert Cash Notice (Khusus COD) -->
                             <div v-if="isCod"
                               class="bg-amber-50 rounded p-3 border border-amber-100 flex items-start gap-2 text-[11px] text-amber-800 leading-relaxed">
                               <i class="pi pi-info-circle text-amber-600 mt-0.5 text-xs shrink-0"></i>
                               <span>Harap siapkan uang tunai sejumlah total tagihan saat bertemu dengan penjual.</span>
                             </div>
 
-                            <--! Action Buttons -->
+                            <!-- Action Buttons -->
                               <div class="space-y-2 pt-2">
                                 <Button label="Hubungi Penjual"
                                   class="w-full bg-blue-600! border-blue-600! py-2!.5 text-xs! font-bold! rounded! hover:bg-blue-700!" />
@@ -382,7 +382,7 @@ const timelineSteps = computed(() => {
                               </div>
                       </div>
 
-                      <--! Card 2: Informasi Toko Penjual -->
+                      <!-- Card 2: Informasi Toko Penjual -->
                         <div class="bg-white rounded p-5 shadow-sm border border-slate-100 flex items-center gap-3">
                           <img
                             :src="order.shop?.logo || 'https://primefaces.org/cdn/primevue/images/avatar/amyelsner.png'"

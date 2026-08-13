@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { publicProductService } from '@/services/publicProductService'
+import { getApiErrorMessage } from '@/services/apiError'
 import { useAuthStore } from '@/stores/auth'
 import { useCartStore } from '@/stores/cart'
 import type { Product } from '@/types'
@@ -9,7 +10,7 @@ import { computed, onMounted, ref, watchEffect } from 'vue'
 import { useRoute } from 'vue-router'
 
 const route = useRoute()
-const slug = computed(() => parseInt(route.params.slug as string) ?? '')
+const slug = computed(() => String(route.params.id ?? ''))
 const product = ref<Product | null>(null)
 const isLoadingGet = ref<boolean>(true)
 // const productStore = useProductStore()
@@ -28,7 +29,7 @@ async function getProduct() {
     toast.add({
       severity: 'error',
       summary: 'Gagal',
-      detail: `Gagal memuat detail barang`,
+      detail: getApiErrorMessage(error, 'Gagal memuat detail barang'),
       life: 3000,
     })
   } finally {
@@ -72,18 +73,22 @@ const changeImage = (index: number) => {
 
 const handleAddToCart = async () => {
   if (!product.value) return
-  await cartStore.addToCart(product.value, quantity.value)
+  const success = await cartStore.addToCart(product.value, quantity.value)
   toast.add({
-    severity: 'success',
-    summary: 'Berhasil',
-    detail: `${product.value.name} berhasil ditambahkan ke keranjang`,
+    severity: success ? 'success' : 'error',
+    summary: success ? 'Berhasil' : 'Gagal',
+    detail: success ? `${product.value.name} berhasil ditambahkan ke keranjang` : (cartStore.error || 'Gagal menambahkan produk'),
     life: 3000,
   })
 }
 
 const handleBuyNow = async () => {
   if (!product.value) return
-  await cartStore.addToCart(product.value, quantity.value)
+  const success = await cartStore.addToCart(product.value, quantity.value)
+  if (!success) {
+    toast.add({ severity: 'error', summary: 'Gagal', detail: cartStore.error || 'Gagal menambahkan produk', life: 3000 })
+    return
+  }
   toast.add({
     severity: 'success',
     summary: 'Siap checkout',

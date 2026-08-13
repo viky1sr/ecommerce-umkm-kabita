@@ -54,7 +54,7 @@ class CartController extends Controller
    */
   private function loadCartWithRelations(Cart $cart): Cart
   {
-    return $cart->load(['items.product: id,name,slug,price,stock,status,shop_id', 'items.product.shop: id,name,slug']);
+    return $cart->load(['items.product:id,name,slug,price,stock,status,shop_id', 'items.product.shop:id,name,slug']);
   }
 
   /**

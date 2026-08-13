@@ -50,7 +50,7 @@ class PaymentTest extends TestCase
     $file = \Illuminate\Http\UploadedFile::fake()->create('receipt.jpg', 1024);
 
     $response = $this->actingAs($this->buyer)
-      ->post("/api/payments/{$this->payment->id}/upload", [
+      ->post("/api/v1/payments/{$this->payment->id}/upload", [
         'proof_image' => $file,
       ]);
 
@@ -75,7 +75,7 @@ class PaymentTest extends TestCase
     $file = \Illuminate\Http\UploadedFile::fake()->create('receipt.jpg');
 
     $response = $this->actingAs($this->buyer)
-      ->post("/api/payments/{$otherPayment->id}/upload", [
+      ->post("/api/v1/payments/{$otherPayment->id}/upload", [
         'proof_image' => $file,
       ]);
 
@@ -85,7 +85,7 @@ class PaymentTest extends TestCase
   public function test_admin_can_list_pending_payments(): void
   {
     $response = $this->actingAs($this->admin)
-      ->get('/api/payments/pending');
+      ->get('/api/v1/payments/pending');
 
     $response->assertStatus(200)
       ->assertJsonPath('data.0.id', $this->payment->id);
@@ -96,7 +96,7 @@ class PaymentTest extends TestCase
     Notification::fake();
 
     $response = $this->actingAs($this->admin)
-      ->patch("/api/payments/{$this->payment->id}/verify");
+      ->patch("/api/v1/payments/{$this->payment->id}/verify");
 
     $response->assertStatus(200)
       ->assertJsonPath('data.status', 'processing');
@@ -122,7 +122,7 @@ class PaymentTest extends TestCase
     Notification::fake();
 
     $response = $this->actingAs($this->admin)
-      ->patch("/api/payments/{$this->payment->id}/reject", [
+      ->patch("/api/v1/payments/{$this->payment->id}/reject", [
         'rejection_reason' => 'Bukti tidak jelas',
       ]);
 
@@ -158,7 +158,7 @@ class PaymentTest extends TestCase
     ]);
 
     $response = $this->actingAs($this->buyer)
-      ->post("/api/orders/{$codOrder->id}/cod-confirm");
+      ->post("/api/v1/orders/{$codOrder->id}/cod-confirm");
 
     $response->assertStatus(200)
       ->assertJsonPath('data.status', 'processing');
@@ -178,7 +178,7 @@ class PaymentTest extends TestCase
     ]);
 
     $response = $this->actingAs($this->buyer)
-      ->post("/api/orders/{$nonCodOrder->id}/cod-confirm");
+      ->post("/api/v1/orders/{$nonCodOrder->id}/cod-confirm");
 
     $response->assertStatus(422)
       ->assertJsonPath('message', 'Hanya order dengan metode pembayaran COD yang dapat dikonfirmasi.');

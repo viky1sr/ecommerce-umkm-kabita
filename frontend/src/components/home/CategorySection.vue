@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { useCategoryStore } from '@/stores/category';
+import { onMounted } from 'vue';
 
 const categoryStore = useCategoryStore()
+onMounted(() => categoryStore.load())
 </script>
 
 <template>
@@ -22,7 +24,7 @@ const categoryStore = useCategoryStore()
             class="flex flex-col items-center gap-3 rounded-[1.5rem] border border-[#e1e2ed] bg-white px-4 py-4 text-center no-underline shadow-sm transition hover:border-slate-300 hover:bg-slate-50">
             <span
               class="flex h-16 w-16 items-center justify-center rounded-[1rem] bg-surface-container text-[#191b23] text-2xl">
-              <i :class="category.icon"></i>
+              <span>{{ category.icon || '🏷️' }}</span>
             </span>
             <span class="text-[0.75rem] font-semibold text-slate-900">{{ category.name }}</span>
           </router-link>

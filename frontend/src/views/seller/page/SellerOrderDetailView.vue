@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import Button from 'primevue/button';
+import Message from 'primevue/message';
 import ProgressSpinner from 'primevue/progressspinner';
 import { useToast } from 'primevue/usetoast';
 import { onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import type { Order } from '@/types';
+import { getApiErrorMessage } from '@/services/apiError';
+import { sellerOrderService } from '@/services/sellerOrderService';
 
 // Sub Components
 import OrderBuyerCard from '../components/order-detail/OrderBuyerCard.vue';
@@ -24,119 +27,33 @@ const toast = useToast();
 const isLoading = ref(true);
 const isActionLoading = ref(false);
 const order = ref<Order | null>(null);
+const errorMessage = ref('');
 
-// MOCK DATA GETTER
-const fetchOrderDetail = () => {
+const fetchOrderDetail = async () => {
   isLoading.value = true;
-  setTimeout(() => {
-    order.value = {
-      id: 101,
-      order_number: (route.params.id as string) || 'INV/20231028/MPL/3521944',
-      buyer_id: 1,
-      shop_id: 2,
-      subtotal: '295000',
-      shipping_cost: '15000',
-      total_amount: '310000',
-      shipping_method: 'JNE Reguler',
-      payment_method: 'Transfer Bank BCA',
-      status: 'processing',
-      shipping_address: 'Jl. Sudirman No. 45, Kebayoran Baru, Jakarta Selatan, 12190',
-      tracking_number: 'JNT8899223311',
-      notes: 'Tolong dipacking kayu ya mas, agar aman sampai tujuan. Terima kasih!',
-      created_at: '28 Okt 2023, 14:30 WIB',
-      updated_at: '28 Okt 2023, 15:00 WIB',
-      buyer: {
-        id: 1,
-        name: 'Budi Santoso',
-        email: 'budi.s@example.com',
-        phone: '0812-3456-7890',
-        proof_image: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100',
-        role: 'buyer',
-        status: 'active',
-        address: null,
-        email_verified_at: null,
-        verified_by: null,
-        verified_at: null,
-        created_at: '',
-        updated_at: ''
-      },
-      items: [
-        {
-          id: 1,
-          order_id: 101,
-          product_id: 201,
-          quantity: 2,
-          price_snapshot: '85000',
-          cost_snapshot: '70000',
-          created_at: '',
-          updated_at: '',
-          product: {
-            id: 201,
-            shop_id: 2,
-            category_id: 1,
-            name: 'Kopi Arabica Gayo Premium - 250g',
-            slug: 'kopi-arabica-gayo',
-            description: '',
-            price: '85000',
-            cost_price: null,
-            stock: 20,
-            weight: 250,
-            status: 'active',
-            verified_at: null,
-            rejection_reason: null,
-            created_at: '',
-            images: [{ id: 1, url: 'https://images.unsplash.com/photo-1559056199-641a0ac8b55e?w=200' }]
-          }
-        },
-        {
-          id: 2,
-          order_id: 101,
-          product_id: 202,
-          quantity: 1,
-          price_snapshot: '125000',
-          cost_snapshot: '100000',
-          created_at: '',
-          updated_at: '',
-          product: {
-            id: 202,
-            shop_id: 2,
-            category_id: 1,
-            name: 'Ceramic V60 Dripper Size 02',
-            slug: 'v60-dripper',
-            description: '',
-            price: '125000',
-            cost_price: null,
-            stock: 15,
-            weight: 300,
-            status: 'active',
-            verified_at: null,
-            rejection_reason: null,
-            created_at: '',
-            images: [{ id: 2, url: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=200' }]
-          }
-        }
-      ],
-      payment: {
-        id: 1,
-        order_id: 101,
-        amount: '310000',
-        status: 'verified',
-        proof_image: 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=400',
-        created_at: '',
-        updated_at: ''
-      }
-    };
+  errorMessage.value = '';
+  try {
+    order.value = await sellerOrderService.getDetail(Number(route.params.id));
+  } catch (error) {
+    errorMessage.value = getApiErrorMessage(error, 'Detail pesanan gagal dimuat.');
+  } finally {
     isLoading.value = false;
-  }, 700);
+  }
 };
 
-const handleShipOrder = () => {
+const printInvoice = () => window.print();
+
+const handleShipOrder = async () => {
+  if (!order.value) return;
   isActionLoading.value = true;
-  setTimeout(() => {
-    if (order.value) order.value.status = 'shipped';
+  try {
+    order.value = await sellerOrderService.ship(order.value.id, { tracking_number: order.value.tracking_number || undefined });
+    toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Pesanan berhasil ditandai sebagai dikirim.', life: 3000 });
+  } catch (error) {
+    toast.add({ severity: 'error', summary: 'Gagal', detail: getApiErrorMessage(error, 'Status pesanan gagal diperbarui.'), life: 4000 });
+  } finally {
     isActionLoading.value = false;
-    toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Pesanan dikonfirmasi & status diubah menjadi Dikirim!', life: 3000 });
-  }, 1000);
+  }
 };
 
 onMounted(() => {
@@ -155,7 +72,9 @@ onMounted(() => {
       </div>
     </Transition>
 
-    <div v-if="order" class="max-w-6xl mx-auto space-y-6">
+    <Message v-if="errorMessage" severity="error" class="mx-auto max-w-6xl">{{ errorMessage }}</Message>
+
+    <div v-if="order && !errorMessage" class="max-w-6xl mx-auto space-y-6">
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-3">
           <Button icon="pi pi-arrow-left" text rounded severity="secondary" @click="router.back()" />
@@ -166,7 +85,7 @@ onMounted(() => {
         </div>
 
         <div class="flex items-center gap-2">
-          <Button icon="pi pi-print" label="Cetak Invoice" outlined severity="secondary" size="small" />
+          <Button icon="pi pi-print" label="Cetak Invoice" outlined severity="secondary" size="small" @click="printInvoice" />
           <Button v-if="order.status === 'processing'" label="Konfirmasi Pengiriman" icon="pi pi-send" size="small"
             :loading="isActionLoading" @click="handleShipOrder" />
         </div>

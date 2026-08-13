@@ -40,7 +40,7 @@ const setPrimary = (id: number) => {
 
 <template>
   <div class="bg-white rounded-2xl shadow-sm p-6 lg:p-8 border border-slate-100">
-    <--! Header -->
+    <!-- Header -->
       <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-6 mb-6 border-b border-slate-100 gap-4">
         <div>
           <h1 class="text-lg font-bold text-slate-800">Alamat Saya</h1>
@@ -50,7 +50,7 @@ const setPrimary = (id: number) => {
           class="bg-blue-600! border-blue-600! text-xs! px-4! py-2!.5 rounded-xl!" />
       </div>
 
-      <--! Address Cards -->
+      <!-- Address Cards -->
         <div class="space-y-4">
           <div v-for="address in addresses" :key="address.id" :class="[
             'p-5 rounded-xl border transition-colors space-y-3',

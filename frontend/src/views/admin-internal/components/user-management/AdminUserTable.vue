@@ -2,16 +2,39 @@
 import type { User } from '@/types/entities';
 import Button from 'primevue/button';
 import Checkbox from 'primevue/checkbox';
+import Select from 'primevue/select';
 
 const props = defineProps<{
   users: Partial<User>[]
+  currentPage: number
+  perPage: number
+  totalUsers: number
+  lastPage: number
 }>()
 
 const emit = defineEmits<{
   (e: 'view', user: Partial<User>): void
   (e: 'edit', user: Partial<User>): void
   (e: 'ban', user: Partial<User>): void
+  (e: 'page', page: number): void
+  (e: 'page-size', perPage: number): void
 }>()
+
+const pageSizes = [
+  { label: '15 / halaman', value: 15 },
+  { label: '30 / halaman', value: 30 },
+  { label: '50 / halaman', value: 50 },
+  { label: '100 / halaman', value: 100 },
+]
+
+const initials = (name?: string) => (name || '?')
+  .trim().split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase()
+
+const statusLabel = (status?: string) => ({
+  active: 'Aktif',
+  inactive: 'Nonaktif',
+  suspended: 'Ditangguhkan',
+}[status || ''] || status || '-')
 
 const formatDate = (dateStr?: string) => {
   if (!dateStr) return '-'
@@ -21,6 +44,8 @@ const formatDate = (dateStr?: string) => {
     hour: '2-digit', minute: '2-digit'
   }).format(date).replace('.', ':')
 }
+
+const changePageSize = (value: number) => emit('page-size', value)
 </script>
 
 <template>
@@ -48,8 +73,11 @@ const formatDate = (dateStr?: string) => {
             </td>
             <td class="py-3.5 px-4">
               <div class="flex items-center gap-3">
-                <img :src="user.proof_image || `https://ui-avatars.com/api/?name=${user.name}&background=random`"
-                  class="w-10 h-10 rounded-full object-cover border border-slate-200" />
+                <img v-if="user.proof_image" :src="user.proof_image"
+                  class="w-10 h-10 rounded-full object-cover border border-slate-200" alt="" />
+                <div v-else class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-blue-100 bg-blue-50 text-xs font-bold text-blue-600">
+                  {{ initials(user.name) }}
+                </div>
                 <div class="flex flex-col">
                   <span class="font-bold text-slate-800">{{ user.name }}</span>
                   <span class="text-xs text-slate-500">{{ user.email }}</span>
@@ -72,7 +100,7 @@ const formatDate = (dateStr?: string) => {
                 }">
                 <span class="w-1.5 h-1.5 rounded-full"
                   :class="user.status === 'active' ? 'bg-emerald-500' : (user.status === 'inactive' ? 'bg-slate-400' : 'bg-amber-500')"></span>
-                {{ user.status === 'suspended' ? 'Pending' : user.status }}
+                {{ statusLabel(user.status) }}
               </div>
             </td>
             <td class="py-3.5 px-4 text-slate-500 text-xs">{{ formatDate(user.created_at) }}</td>
@@ -91,15 +119,15 @@ const formatDate = (dateStr?: string) => {
       </table>
       <div
         class="flex items-center justify-between p-4 border-t border-slate-100 text-sm text-slate-500 bg-slate-50/30">
-        <span>Menampilkan 1-{{ users.length }} dari 1,247 user</span>
+        <div class="flex flex-wrap items-center gap-3">
+          <span>Menampilkan {{ users.length ? ((props.currentPage - 1) * props.perPage) + 1 : 0 }}-{{ Math.min(props.currentPage * props.perPage, props.totalUsers) }} dari {{ props.totalUsers.toLocaleString('id-ID') }} user</span>
+          <Select :model-value="props.perPage" :options="pageSizes" option-label="label" option-value="value"
+            class="w-36" aria-label="Jumlah user per halaman" @update:model-value="changePageSize" />
+        </div>
         <div class="flex items-center gap-1">
-          <Button label="< Previous" text size="small" class="text-slate-500! font-semibold! px-3!" />
-          <Button label="1" class="bg-blue-600! border-blue-600! text-white! w-8! h-8! p-0! rounded-full! font-bold!" />
-          <Button label="2" text class="text-slate-600! w-8! h-8! p-0! rounded-full! font-semibold!" />
-          <Button label="3" text class="text-slate-600! w-8! h-8! p-0! rounded-full! font-semibold!" />
-          <span class="px-1 text-slate-400">...</span>
-          <Button label="125" text class="text-slate-600! w-8! h-8! p-0! rounded-full! font-semibold!" />
-          <Button label="Next >" text size="small" class="text-slate-500! font-semibold! px-3!" />
+          <Button label="Sebelumnya" text size="small" :disabled="props.currentPage <= 1" class="text-slate-500! font-semibold! px-3!" @click="emit('page', props.currentPage - 1)" />
+          <span class="px-2 text-xs font-semibold text-slate-600">{{ props.currentPage }} / {{ props.lastPage }}</span>
+          <Button label="Berikutnya" text size="small" :disabled="props.currentPage >= props.lastPage" class="text-slate-500! font-semibold! px-3!" @click="emit('page', props.currentPage + 1)" />
         </div>
       </div>
     </div>

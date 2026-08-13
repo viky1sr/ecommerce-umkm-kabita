@@ -23,7 +23,7 @@ class ShippingControllerTest extends TestCase
    */
   public function test_get_shipping_options_returns_valid_structure(): void
   {
-    $response = $this->actingAs($this->buyer)->getJson('/api/shipping/options');
+    $response = $this->actingAs($this->buyer)->getJson('/api/v1/shipping/options');
 
     $response->assertStatus(200)
       ->assertJson([
@@ -56,7 +56,7 @@ class ShippingControllerTest extends TestCase
    */
   public function test_get_shipping_options_requires_authentication(): void
   {
-    $response = $this->getJson('/api/shipping/options');
+    $response = $this->getJson('/api/v1/shipping/options');
 
     $response->assertStatus(401);
   }
@@ -67,7 +67,7 @@ class ShippingControllerTest extends TestCase
   public function test_calculate_shipping_cost_for_cod(): void
   {
     $response = $this->actingAs($this->buyer)
-      ->postJson('/api/shipping/calculate', [
+      ->postJson('/api/v1/shipping/calculate', [
         'weight' => 500,
         'shipping_method' => 'cod',
       ]);
@@ -91,7 +91,7 @@ class ShippingControllerTest extends TestCase
     // Weight: 2000 grams = 2 kg
     // Cost: base_rate(10000) + (2 * 5000) = 20000
     $response = $this->actingAs($this->buyer)
-      ->postJson('/api/shipping/calculate', [
+      ->postJson('/api/v1/shipping/calculate', [
         'weight' => 2000,
         'shipping_method' => 'kurir',
         'courier_type' => 'reguler',
@@ -117,7 +117,7 @@ class ShippingControllerTest extends TestCase
     // Weight: 1000 grams = 1 kg
     // Cost: base_rate(20000) + (1 * 5000) = 25000
     $response = $this->actingAs($this->buyer)
-      ->postJson('/api/shipping/calculate', [
+      ->postJson('/api/v1/shipping/calculate', [
         'weight' => 1000,
         'shipping_method' => 'kurir',
         'courier_type' => 'express',
@@ -143,7 +143,7 @@ class ShippingControllerTest extends TestCase
     // Weight: 1000 grams = 1 kg
     // Cost: base_rate(10000) + (1 * 5000) = 15000
     $response = $this->actingAs($this->buyer)
-      ->postJson('/api/shipping/calculate', [
+      ->postJson('/api/v1/shipping/calculate', [
         'weight' => 1000,
         'shipping_method' => 'kurir',
         'courier_type' => 'reguler',
@@ -166,7 +166,7 @@ class ShippingControllerTest extends TestCase
    */
   public function test_calculate_shipping_requires_authentication(): void
   {
-    $response = $this->postJson('/api/shipping/calculate', [
+    $response = $this->postJson('/api/v1/shipping/calculate', [
       'weight' => 1000,
       'shipping_method' => 'kurir',
     ]);
@@ -180,7 +180,7 @@ class ShippingControllerTest extends TestCase
   public function test_calculate_shipping_validates_required_fields(): void
   {
     $response = $this->actingAs($this->buyer)
-      ->postJson('/api/shipping/calculate', []);
+      ->postJson('/api/v1/shipping/calculate', []);
 
     $response->assertStatus(422)
       ->assertJsonValidationErrors(['weight', 'shipping_method']);
@@ -192,7 +192,7 @@ class ShippingControllerTest extends TestCase
   public function test_calculate_shipping_validates_shipping_method(): void
   {
     $response = $this->actingAs($this->buyer)
-      ->postJson('/api/shipping/calculate', [
+      ->postJson('/api/v1/shipping/calculate', [
         'weight' => 1000,
         'shipping_method' => 'invalid',
       ]);
@@ -207,7 +207,7 @@ class ShippingControllerTest extends TestCase
   public function test_calculate_shipping_validates_weight(): void
   {
     $response = $this->actingAs($this->buyer)
-      ->postJson('/api/shipping/calculate', [
+      ->postJson('/api/v1/shipping/calculate', [
         'weight' => -100,
         'shipping_method' => 'kurir',
       ]);
@@ -222,7 +222,7 @@ class ShippingControllerTest extends TestCase
   public function test_calculate_shipping_validates_courier_type_for_kurir(): void
   {
     $response = $this->actingAs($this->buyer)
-      ->postJson('/api/shipping/calculate', [
+      ->postJson('/api/v1/shipping/calculate', [
         'weight' => 1000,
         'shipping_method' => 'kurir',
         'courier_type' => 'invalid',
@@ -238,7 +238,7 @@ class ShippingControllerTest extends TestCase
   public function test_calculate_shipping_allows_null_courier_type_for_cod(): void
   {
     $response = $this->actingAs($this->buyer)
-      ->postJson('/api/shipping/calculate', [
+      ->postJson('/api/v1/shipping/calculate', [
         'weight' => 1000,
         'shipping_method' => 'cod',
         'courier_type' => null,

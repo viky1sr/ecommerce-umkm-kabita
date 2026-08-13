@@ -26,4 +26,9 @@ export const adminAnalyticsService = {
     const response = await apiClient.get('/analytics/top-products', { params: { per_page: perPage } });
     return response.data.data;
   },
+
+  async getCategoryRevenue(perPage = 10): Promise<Array<{ id: number; name: string; revenue: string }>> {
+    const response = await apiClient.get('/analytics/category-revenue', { params: { per_page: perPage } });
+    return response.data.data;
+  },
 };

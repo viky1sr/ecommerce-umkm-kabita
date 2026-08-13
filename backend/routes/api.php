@@ -1,5 +1,6 @@
 <?php
 
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\Seller\ShopController;
@@ -16,6 +17,20 @@ use App\Http\Controllers\Api\ShippingController;
 // API Version 1
 Route::prefix('v1')->group(function () {
 
+  // Public integration probe for local frontend/API checks.
+  Route::get('/health', function () {
+    DB::connection()->getPdo();
+
+    return response()->json([
+      'success' => true,
+      'data' => [
+        'service' => 'kabita-api',
+        'status' => 'ok',
+        'database' => 'connected',
+      ],
+    ]);
+  })->name('health');
+
   // Public Auth Routes
   Route::prefix('auth')->middleware('throttle:auth')->group(function () {
     Route::post('/login', [AuthController::class, 'login']);
@@ -31,12 +46,19 @@ Route::prefix('v1')->group(function () {
   });
 
   // Shop Routes
-  Route::get('/shops/{slug}', [ShopController::class, 'showPublic'])->name('shops.public');
-
   Route::middleware(['auth:sanctum', 'seller', 'throttle:api', 'sanitize'])->group(function () {
     Route::post('/shops', [ShopController::class, 'create'])->name('shops.create');
     Route::get('/shops/my-shop', [ShopController::class, 'myShop'])->name('shops.my-shop');
     Route::put('/shops/{shop}', [ShopController::class, 'update'])->name('shops.update');
+  });
+
+  Route::middleware(['auth:sanctum', 'seller', 'throttle:api', 'sanitize'])->prefix('seller/products')->group(function () {
+    Route::get('/', [\App\Http\Controllers\Api\Seller\ProductController::class, 'index']);
+    Route::post('/', [\App\Http\Controllers\Api\Seller\ProductController::class, 'store']);
+    Route::get('/{slug}', [\App\Http\Controllers\Api\Seller\ProductController::class, 'show']);
+    Route::put('/{slug}', [\App\Http\Controllers\Api\Seller\ProductController::class, 'update']);
+    Route::post('/{slug}', [\App\Http\Controllers\Api\Seller\ProductController::class, 'update']);
+    Route::delete('/{slug}', [\App\Http\Controllers\Api\Seller\ProductController::class, 'destroy']);
   });
 
   // Category Routes
@@ -87,8 +109,8 @@ Route::prefix('v1')->group(function () {
   // Admin Routes
   Route::middleware(['auth:sanctum', 'admin', 'throttle:api', 'sanitize'])->group(function () {
     Route::post('/categories', [CategoryController::class, 'store'])->name('categories.store');
-    Route::put('/categories/{category}', [CategoryController::class, 'update'])->name('categories.update');
-    Route::delete('/categories/{category}', [CategoryController::class, 'destroy'])->name('categories.destroy');
+    Route::put('/categories/{category:slug}', [CategoryController::class, 'update'])->name('categories.update');
+    Route::delete('/categories/{category:slug}', [CategoryController::class, 'destroy'])->name('categories.destroy');
 
     // Admin Product Verification
     Route::get('/products/pending', [AdminProductController::class, 'pending'])->name('admin.products.pending');
@@ -107,6 +129,7 @@ Route::prefix('v1')->group(function () {
       Route::get('/sales', [\App\Http\Controllers\Api\Admin\AnalyticsController::class, 'sales'])->name('admin.analytics.sales');
       Route::get('/top-sellers', [\App\Http\Controllers\Api\Admin\AnalyticsController::class, 'topSellers'])->name('admin.analytics.top-sellers');
       Route::get('/top-products', [\App\Http\Controllers\Api\Admin\AnalyticsController::class, 'topProducts'])->name('admin.analytics.top-products');
+      Route::get('/category-revenue', [\App\Http\Controllers\Api\Admin\AnalyticsController::class, 'categoryRevenue'])->name('admin.analytics.category-revenue');
     });
 
     // Admin Shop Verification
@@ -123,7 +146,14 @@ Route::prefix('v1')->group(function () {
     Route::get('/payment-settings', [\App\Http\Controllers\Api\Admin\PaymentSettingController::class, 'show'])->name('admin.payment-settings.show');
     Route::post('/payment-settings', [\App\Http\Controllers\Api\Admin\PaymentSettingController::class, 'store'])->name('admin.payment-settings.store');
     Route::put('/payment-settings/{paymentSetting}', [\App\Http\Controllers\Api\Admin\PaymentSettingController::class, 'update'])->name('admin.payment-settings.update');
+
+    Route::get('/admin/orders', [\App\Http\Controllers\Api\Admin\OrderController::class, 'index'])->name('admin.orders.index');
+    Route::get('/admin/orders/{order}', [\App\Http\Controllers\Api\Admin\OrderController::class, 'show'])->name('admin.orders.show');
   });
+
+  // Public shop route comes after the specific /shops/* routes above so it
+  // cannot capture /shops/my-shop or /shops/pending.
+  Route::get('/shops/{slug}', [ShopController::class, 'showPublic'])->name('shops.public');
 
   // Order Routes (Buyer only)
   Route::middleware(['auth:sanctum', 'buyer', 'throttle:api', 'sanitize'])->prefix('orders')->group(function () {

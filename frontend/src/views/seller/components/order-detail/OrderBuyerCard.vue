@@ -13,11 +13,12 @@ defineProps<{
 
     <div class="flex items-center justify-between mb-4">
       <div class="flex items-center gap-3">
-        <img :src="buyer?.proof_image || 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100'"
-          class="w-10 h-10 rounded-full object-cover border border-gray-200" />
+        <div class="flex h-10 w-10 items-center justify-center rounded-full border border-blue-100 bg-blue-50 text-xs font-bold text-blue-600">
+          {{ (buyer?.name || '?').slice(0, 1).toUpperCase() }}
+        </div>
         <div>
-          <h4 class="text-xs font-bold text-gray-800">{{ buyer?.name || 'Budi Santoso' }}</h4>
-          <p class="text-[11px] text-gray-400">{{ buyer?.email || 'budi@example.com' }}</p>
+          <h4 class="text-xs font-bold text-gray-800">{{ buyer?.name || '—' }}</h4>
+          <p class="text-[11px] text-gray-400">{{ buyer?.email || '—' }}</p>
         </div>
       </div>
       <i class="pi pi-comments text-blue-600 text-lg cursor-pointer hover:opacity-80"></i>
@@ -26,7 +27,7 @@ defineProps<{
     <div class="space-y-1.5 text-xs text-gray-600">
       <span class="font-semibold text-gray-400 text-[11px]">Alamat Pengiriman</span>
       <p class="leading-relaxed text-gray-700">{{ shippingAddress }}</p>
-      <p class="font-medium text-gray-800 pt-1">{{ buyer?.phone || '0812-3456-7890' }}</p>
+      <p class="font-medium text-gray-800 pt-1">{{ buyer?.phone || '—' }}</p>
     </div>
   </div>
 </template>

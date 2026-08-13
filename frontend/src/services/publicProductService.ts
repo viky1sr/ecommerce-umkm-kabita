@@ -20,12 +20,13 @@ export const publicProductService = {
     max_price?: number;
     sort?: 'newest' | 'price_asc' | 'price_desc';
     per_page?: number;
+    page?: number;
   }): Promise<{ data: Product[]; meta: PaginationMeta }> {
     const response = await apiClient.get('/public/products', { params: filters });
     return { data: response.data.data, meta: response.data.meta };
   },
 
-  async getBySlug(slug: number): Promise<SingleResponse<Product>> {
+  async getBySlug(slug: string): Promise<SingleResponse<Product>> {
     const response = await apiClient.get<SingleResponse<Product>>(`/public/products/${slug}`);
     return response.data;
   },

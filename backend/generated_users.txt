@@ -1,15 +1,5 @@
-Email: admin@kabita.test
-Password: password
-Role: Admin
-
-Email: alehner@example.com
-Password: password
-Role: Seller (Verified)
-
-Email: feil.kacie@example.org
-Password: password
-Role: Seller (Pending)
-
-Email: wilfred.quitzon@example.net
-Password: password
-Role: Buyer
+Demo accounts (password: password)
+admin@kabita.test | admin
+seller@kabita.test | seller verified
+seller.pending@kabita.test | seller pending
+buyer@kabita.test | buyer

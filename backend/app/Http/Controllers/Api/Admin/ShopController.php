@@ -13,6 +13,7 @@ use App\Models\Shop;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 /**
  * @group Shop
@@ -77,23 +78,29 @@ class ShopController extends Controller
 
     $admin = Auth::user();
 
-    $shop->update([
-      'status' => ShopStatus::VERIFIED,
-      'verified_by' => $admin->id,
-      'verified_at' => now(),
-    ]);
+    $shop = DB::transaction(function () use ($shop, $admin): Shop {
+      $shop->update([
+        'status' => ShopStatus::VERIFIED,
+        'verified_by' => $admin->id,
+        'verified_at' => now(),
+      ]);
 
-    // Notify seller
-    $shop->seller->notify(new ShopVerifiedMail(
-      $shop->seller->name,
-      $shop->name,
-      $admin->name
-    ));
+      // Queue notification in the same transaction. If the queue table or
+      // connection is unavailable, the verification is rolled back and can
+      // safely be retried instead of leaving a misleading partial success.
+      $shop->seller->notify(new ShopVerifiedMail(
+        $shop->seller->name,
+        $shop->name,
+        $admin->name
+      ));
+
+      return $shop->fresh(['seller', 'verifier']);
+    });
 
     return response()->json([
       'success' => true,
       'message' => 'Toko berhasil diverifikasi.',
-      'data' => new ShopResource($shop->load(['seller', 'verifier'])),
+      'data' => new ShopResource($shop),
     ]);
   }
 

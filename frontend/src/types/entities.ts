@@ -45,7 +45,10 @@ export interface Shop {
   name: string;
   slug: string;
   description: string | null;
+  phone?: string | null;
+  address?: string | null;
   logo: string | null;
+  banner?: string | null;
   status: ShopStatus;
   verified_by: number | null;
   verified_at: string | null;
@@ -68,6 +71,7 @@ export interface Category {
   name: string;
   slug: string;
   icon: string;
+  description?: string | null;
   product_count: number | null;
   created_at: string;
   updated_at: string;
@@ -225,6 +229,11 @@ export interface Payment {
   proof_image: string | null;
   created_at: string | null;
   updated_at: string | null;
+  order?: {
+    order_number: string;
+    buyer?: User;
+    shop?: Shop;
+  };
 }
 
 // ─────────────────────────────────────────────────────

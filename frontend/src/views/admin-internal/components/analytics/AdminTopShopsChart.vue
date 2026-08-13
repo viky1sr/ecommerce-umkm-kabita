@@ -1,17 +1,19 @@
 <script setup lang="ts">
 import Chart from 'primevue/chart';
-import { onMounted, ref } from 'vue';
+import { ref, watch } from 'vue';
+
+const props = defineProps<{ rows: Array<{ name: string; total_revenue: string }> }>();
 
 const chartData = ref();
 const chartOptions = ref();
 
-onMounted(() => {
+watch(() => props.rows, () => {
   chartData.value = {
-    labels: ['Toko A', 'Toko B', 'Toko C', 'Toko D', 'Toko E', 'Toko F', 'Toko G', 'Toko H'],
+    labels: props.rows.map((row) => row.name),
     datasets: [
       {
         label: 'Revenue',
-        data: [92, 85, 72, 62, 58, 48, 35, 25],
+        data: props.rows.map((row) => Number(row.total_revenue)),
         backgroundColor: '#3b82f6',
         borderRadius: 6,
         barThickness: 12
@@ -29,7 +31,7 @@ onMounted(() => {
     scales: {
       x: {
         display: false,
-        max: 100
+        beginAtZero: true
       },
       y: {
         grid: { display: false },
@@ -37,7 +39,7 @@ onMounted(() => {
       }
     }
   };
-});
+}, { immediate: true });
 </script>
 
 <template>
